@@ -86,6 +86,9 @@ button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:ma
   #contract .aura{width:54px;height:54px;margin-bottom:.5rem}
   #chat>.pinned-mission{max-height:44dvh;overflow:auto}
 }
+#discipline{font-size:.82rem;color:#f3bb7b}#discipline.locked{color:#ff8d8d}
+#discipline-dialog{width:min(26rem,calc(100% - 2rem));border:1px solid #b88855;border-radius:16px;padding:1.25rem;background:#171e2c;color:#f6e8d0;box-shadow:0 15px 50px #0009}
+#discipline-dialog::backdrop{background:#080d16bd}#discipline-dialog h2{font-size:1.15rem;margin:0 0 .75rem}#discipline-dialog p{white-space:pre-line;line-height:1.6}#discipline-dialog .report-actions{display:flex;gap:.5rem;flex-wrap:wrap}
 </style>
 <dialog id="contract" aria-labelledby="contract-title">
   <div class="aura" aria-hidden="true"><span></span><b>◈</b></div>
@@ -105,6 +108,7 @@ button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:ma
     </form>
   </div>
 </dialog>
+<dialog id="discipline-dialog" aria-labelledby="discipline-title"><h2 id="discipline-title">◈ Hội đồng kỷ luật</h2><p id="discipline-message"></p><div class="report-actions"><button id="discipline-confirm" class="primary" type="button">Xác nhận bỏ nhiệm vụ</button><button id="discipline-cancel" type="button">Quay lại nhiệm vụ</button></div></dialog>
 <main>
 <header><span class="signal">◈ HỆ THỐNG TÔNG MÔN</span><strong id="score"></strong></header><div class="rank"><strong id="rank-title"></strong><progress id="rank-bar" aria-label="Tiến trình lên cấp"></progress><small id="rank-detail"></small></div>
 <div class="terminal-intro">
@@ -135,7 +139,7 @@ button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:ma
   <div class="report-actions"><button class="primary" id="submit-mission">Giao nộp nhiệm vụ</button><button id="skip" hidden>Khó quá cán bộ ơi!</button></div>
 </div>
 </dialog>
-<details id="day-review" hidden><summary id="review-title"></summary><ul id="review-list"></ul><small id="review-note"></small></details><footer><small id="stats"></small></footer>
+<details id="day-review" hidden><summary id="review-title"></summary><ul id="review-list"></ul><small id="review-note"></small></details><footer><small id="stats"></small><div id="discipline" role="status"></div></footer>
 </main>
 <script>
 const missions = [
@@ -281,7 +285,7 @@ const systemNames = ['Cục','Viện','Hội','Ban','Ty','Đội','Sở','Phòng
     .flatMap(subject => ['Hết Pin','Hay Quên','Ngoài Giờ','Chưa Duyệt','Mất Sóng','Thiếu Ngủ','Đang Pha Trà','Không Lương','Tập Sự','Bản Lỗi']
       .map(suffix => prefix + ' ' + subject + ' ' + suffix)));
 const key = 'system-missions-v1';
-let state = { xp: 0, done: 0 };
+let state = { xp: 0, done: 0, discipline: 0, banCount: 0, skipStreak: 0 };
 try {
   const saved = JSON.parse(localStorage.getItem(key));
   if (saved && Number.isFinite(saved.xp) && Number.isFinite(saved.done)) state = saved;
@@ -291,6 +295,41 @@ if (!state.deviceSeed) {
   save();
 }
 const el = id => document.getElementById(id);
+const HELP_COOLDOWN_MS = 30000;
+function normalizeDiscipline() {
+  if (!Number.isFinite(state.discipline)) state.discipline=0;
+  if (!Number.isInteger(state.banCount) || state.banCount<0) state.banCount=0;
+  if (!Number.isInteger(state.skipStreak) || state.skipStreak<0) state.skipStreak=0;
+  if (!Number.isFinite(state.bannedUntil)) state.bannedUntil=0;
+  if (state.bannedUntil && Date.now()>=state.bannedUntil) {
+    state.bannedUntil=0;
+    state.discipline=-5;
+    save();
+  }
+}
+function banRemaining() { normalizeDiscipline(); return Math.max(0,state.bannedUntil-Date.now()); }
+function penaltyForNextSkip() { return state.skipStreak===0?2:state.skipStreak===1?3:5; }
+function applySkipPenalty() {
+  state.skipStreak++;
+  const loss=state.skipStreak===1?2:state.skipStreak===2?3:5;
+  state.discipline-=loss;
+  if (state.discipline < -10) {
+    state.banCount++;
+    const minutes=state.banCount===1?5:state.banCount===2?10:state.banCount*10;
+    state.bannedUntil=Date.now()+minutes*60000;
+    return {loss,minutes};
+  }
+  return {loss,minutes:0};
+}
+function showDisciplineNotice(title,message,confirm=false) {
+  el('discipline-title').textContent=title;
+  el('discipline-message').textContent=message;
+  el('discipline-confirm').hidden=!confirm;
+  el('discipline-cancel').textContent=confirm?'Quay lại nhiệm vụ':'Đã hiểu';
+  if (!el('discipline-dialog').open) el('discipline-dialog').showModal();
+}
+el('discipline-cancel').onclick=()=>el('discipline-dialog').close();
+
 function assignSystem() {
   state.systemName ??= systemNames[Math.floor(Math.random() * systemNames.length)];
 }
@@ -436,6 +475,7 @@ let reportOpen = false;
 function render(animateMission = false, greetingOnly = false) {
 
   const run = currentRun();
+  const remaining=banRemaining();
   const level = levelFor(state.xp);
   el('score').textContent = 'Cấp ' + level + ' / ' + MAX_LEVEL + ' · ' + xpLabel(state.xp) + ' XP';
   el('rank-title').textContent = rankFor(level);
@@ -446,6 +486,8 @@ function render(animateMission = false, greetingOnly = false) {
   el('rank-bar').value = atMax ? 1 : earned;
   el('rank-detail').textContent = atMax ? 'Đã đạt cấp tối đa' :
     xpLabel(earned) + ' / ' + xpLabel(required) + ' XP để lên cấp ' + (level + 1);
+  el('discipline').textContent = 'Điểm kỷ luật: '+state.discipline+' · Số lần khai trừ: '+state.banCount+(remaining?' · Bị khai trừ còn '+Math.ceil(remaining/1000)+' giây':'');
+  el('discipline').classList.toggle('locked',remaining>0);
   el('stats').textContent = 'Hôm nay · Đã hoàn thành: ' + run.cleared
     + ' · Không hoàn thành (đã bỏ qua): ' + (run.next - run.cleared)
     + ' · Chưa hoàn thành: ' + (run.queue.length - run.next);
@@ -455,8 +497,8 @@ function render(animateMission = false, greetingOnly = false) {
   const active = mission?.phase === 'active';
   if (active) { const v=verifyState(mission); if(!v.lastTick && document.visibilityState==='visible') v.lastTick=Date.now(); }
   const finished = !active && run.next === run.queue.length;
-  el('action').disabled = finished;
-  el('action').textContent = active ? 'Báo cáo cán bộ' : finished ? 'Đã hết nhiệm vụ hôm nay' : '◈ Nhận nhiệm vụ tông môn';
+  el('action').disabled = finished || remaining>0;
+  el('action').textContent = remaining ? '⛔ Đang bị khai trừ · '+Math.ceil(remaining/1000)+'s' : active ? 'Báo cáo cán bộ' : finished ? 'Đã hết nhiệm vụ hôm nay' : '◈ Nhận nhiệm vụ tông môn';
   el('verification').hidden = !active || !reportOpen;
   if (active && reportOpen) {
     renderVerification(mission);
@@ -464,12 +506,14 @@ function render(animateMission = false, greetingOnly = false) {
   }
   el('skip').hidden = !active;
   const attempts = mission?.skipAttempts ?? 0;
-  el('skip').textContent = 'Khó quá cán bộ ơi!' + (attempts === 2 && active
-    ? ' · Bỏ qua, mất ' + Math.min(state.xp, 5 + levels[mission.index] * 3) + ' XP'
-    : attempts === 1 ? ' · Lần 2' : '');
+  const wait=Math.max(0,(mission?.helpNextAt??0)-Date.now());
+  el('skip').disabled = remaining>0 || wait>0;
+  el('skip').textContent = wait>0 ? 'Cán bộ đang xử lý · '+Math.ceil(wait/1000)+'s' : attempts>=2
+    ? 'Xin bỏ nhiệm vụ (−'+penaltyForNextSkip()+' điểm kỷ luật)' : 'Khó quá cán bộ ơi! · Gợi ý '+(attempts+1)+'/2';
   el('nudge').hidden = !active || levels[mission.index] < 3;
   say('Xin chào ký chủ ' + (state.host || '') + '. Tôi là Hệ Thống Tông Môn của ký chủ.');
   if (greetingOnly) return;
+  if (remaining) { say('⛔ Ký chủ đang bị khai trừ tạm thời. Chưa thể nhận hoặc giao nộp nhiệm vụ. Hãy chờ hết thời gian kỷ luật.'); return; }
   if (finished && mission !== latestResult) {
     say('Hết lượt hôm nay. Hoàn thành ' + run.cleared + '/50 nhiệm vụ.');
     return;
@@ -508,7 +552,7 @@ function render(animateMission = false, greetingOnly = false) {
   }
   if (mission.phase === 'skipped') {
     say('Ký chủ xin bỏ qua.', 'me');
-    say('−' + mission.lost + ' XP. ' + (mission.officerReply ?? roasts[mission.index % roasts.length]));
+    say('−' + mission.lost + ' điểm kỷ luật. ' + (mission.officerReply ?? roasts[mission.index % roasts.length]));
   }
   if (finished) say('Hết lượt hôm nay. Hoàn thành ' + run.cleared + '/50 nhiệm vụ. Hệ Thống Tông Môn xin phép đi nghỉ trước ký chủ.');
 }
@@ -516,6 +560,7 @@ function render(animateMission = false, greetingOnly = false) {
 el('close-report').onclick = () => el('report-dialog').close();
 el('report-dialog').addEventListener('close', () => { reportOpen = false; });
 el('action').onclick = () => {
+  if (banRemaining()) { render(); return; }
   const run = currentRun();
   if (run.mission?.phase === 'active') {
     reportOpen = true;
@@ -536,7 +581,7 @@ el('action').onclick = () => {
 el('submit-mission').onclick = () => {
   const run = currentRun();
   const mission = run.mission;
-  if (!reportOpen || mission?.phase !== 'active') return;
+  if (!reportOpen || mission?.phase !== 'active' || banRemaining()) return;
   const v=verifyState(mission);
   v.error=validateVerification(mission);
   if (v.error) { save(); render(); return; }
@@ -546,6 +591,7 @@ el('submit-mission').onclick = () => {
   const before = levelFor(state.xp);
   state.xp += mission.reward ?? missions[mission.index][2];
   state.done++;
+  state.skipStreak=0;
   run.cleared++;
   run.next++;
   mission.phase = 'done';
@@ -556,30 +602,61 @@ el('submit-mission').onclick = () => {
   save();
   render();
 };
+function finalizeSkip() {
+  const run=currentRun(),mission=run.mission;
+  if (!mission || mission.phase!=='active' || banRemaining()) return;
+  mission.officerReply=randomDialogue(officerLines);
+  const result=applySkipPenalty();
+  mission.lost=result.loss;
+  mission.phase='skipped';
+  latestResult=mission;
+  (run.skippedIds??={})[run.next]=mission.index;
+  run.next++;
+  reportOpen=false;
+  if(el('report-dialog').open) el('report-dialog').close();
+  if(el('discipline-dialog').open) el('discipline-dialog').close();
+  save();render();
+  if(result.minutes) { wasBanned=true; showDisciplineNotice('⛔ KHAI TRỪ KHỎI TÔNG MÔN',
+    'Điểm kỷ luật đã xuống dưới -10. Ký chủ bị khai trừ lần '+state.banCount+' trong '+result.minutes+' phút. Trong thời gian này không được nhận hoặc giao nộp nhiệm vụ. Hết hạn, điểm kỷ luật sẽ trở về -5.'); }
+}
+el('discipline-confirm').onclick=finalizeSkip;
 el('skip').onclick = () => {
-  const run = currentRun();
-  const mission = run.mission;
-  if (!reportOpen || el('skip').hidden || mission?.phase !== 'active') return;
-  mission.skipAttempts = (mission.skipAttempts ?? 0) + 1;
-  if (mission.skipAttempts < 3) {
-    save();
-    render();
-    say('Ký chủ xin bỏ qua.', 'me');
-    say(randomDialogue(officerLines) + ' Chưa duyệt bỏ qua. Lần ' + mission.skipAttempts + '/3.');
+  const run=currentRun(),mission=run.mission;
+  if (!reportOpen || el('skip').hidden || mission?.phase!=='active' || banRemaining()) return;
+  if(Date.now()<(mission.helpNextAt??0)) return;
+  if((mission.skipAttempts??0)<2) {
+    mission.skipAttempts=(mission.skipAttempts??0)+1;
+    mission.helpNextAt=Date.now()+HELP_COOLDOWN_MS;
+    const hint=mission.skipAttempts===1
+      ? 'Hãy chia nhiệm vụ thành bước nhỏ nhất và thực hiện bước đó trước.'
+      : 'Thử cách đơn giản hơn: tập trung vào một kết quả nhỏ có thể kiểm chứng.';
+    save();render();
+    say('Ký chủ xin cán bộ trợ giúp lần '+mission.skipAttempts+'/2.', 'me');
+    say('◈ Cán bộ: '+hint+' Chờ 30 giây trước khi xin hỗ trợ tiếp.');
     return;
   }
-  mission.officerReply = randomDialogue(officerLines);
-  mission.lost = Math.min(state.xp, 5 + levels[mission.index] * 3);
-  state.xp -= mission.lost;
-  reportOpen = false;
-  if (el('report-dialog').open) el('report-dialog').close();
-  mission.phase = 'skipped';
-  latestResult = mission;
-  (run.skippedIds ??= {})[run.next] = mission.index;
-  run.next++;
-  save();
-  render();
+  showDisciplineNotice('⚠ Xác nhận bỏ nhiệm vụ',
+    'Ký chủ đã dùng hết 2 lượt gợi ý. Nếu bỏ nhiệm vụ này sẽ bị trừ '+penaltyForNextSkip()+' điểm kỷ luật. Điểm hiện tại: '+state.discipline+'. Nếu điểm xuống dưới -10, ký chủ sẽ bị khai trừ tạm thời. Tiếp tục?',true);
 };
+let wasBanned=banRemaining()>0;
+setInterval(()=>{
+  const remaining=banRemaining();
+  if(wasBanned && !remaining) { wasBanned=false; render(); return; }
+  if(remaining) {
+    wasBanned=true;
+    el('action').disabled=true;
+    el('action').textContent='⛔ Đang bị khai trừ · '+Math.ceil(remaining/1000)+'s';
+    el('discipline').textContent='Điểm kỷ luật: '+state.discipline+' · Khai trừ lần '+state.banCount+' · Còn '+Math.ceil(remaining/1000)+'s';
+  }
+  const mission=state.run?.mission;
+  if(mission?.phase==='active') {
+    const wait=Math.max(0,(mission.helpNextAt??0)-Date.now());
+    el('skip').disabled=remaining>0 || wait>0;
+    el('skip').textContent=wait>0?'Cán bộ đang xử lý · '+Math.ceil(wait/1000)+'s'
+      :(mission.skipAttempts??0)>=2?'Xin bỏ nhiệm vụ (−'+penaltyForNextSkip()+' điểm kỷ luật)'
+      :'Khó quá cán bộ ơi! · Gợi ý '+((mission.skipAttempts??0)+1)+'/2';
+  }
+},1000);
 const voiceStatus = el('voice-status');
 let audioContext;
 let audioReady;
@@ -702,7 +779,7 @@ el('contract-form').addEventListener('submit', event => {
   }
   if (state.host) {
     if (!window.confirm('Ký khế ước mới và bắt đầu lại tiến độ?')) return;
-    state = { xp: 0, done: 0, deviceSeed: state.deviceSeed };
+    state = { xp: 0, done: 0, discipline: 0, banCount: 0, skipStreak: 0, deviceSeed: state.deviceSeed };
   }
   state.host = name;
   state.systemName = prospectiveSystem;
