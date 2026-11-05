@@ -29,6 +29,9 @@ button:disabled{opacity:.55;cursor:default}
 #contract.signed .contract-copy{animation:seal-reveal .75s ease-out both}
 @keyframes seal-reveal{from{opacity:0;transform:scale(.94);filter:blur(9px)}to{opacity:1;transform:none;filter:none}}
 @media(prefers-reduced-motion:reduce){#contract.signed .contract-copy{animation:none}}
+#report-dialog{width:min(490px,calc(100% - 24px));max-height:min(86dvh,760px);overflow-y:auto;overscroll-behavior:contain;background:#101d2a;color:#e8f3f5;border:1px solid #507c8b;border-radius:22px;padding:1.1rem;box-shadow:0 25px 90px #000b}
+#report-dialog::backdrop{background:#050c16c9;backdrop-filter:blur(5px)}
+.report-header{display:flex;align-items:start;justify-content:space-between;gap:1rem;margin-bottom:.85rem}.report-header strong{font-size:1.08rem;color:#a5ffe0}.report-header small{display:block;margin-top:.3rem;color:#a8bbc8}.report-close{padding:.35rem .7rem;min-height:38px;flex:none}.report-bubble{background:#192b3b;border:1px solid #36576a;border-radius:18px 18px 18px 5px;padding:.85rem;margin-bottom:.9rem;white-space:pre-line;overflow-wrap:anywhere}.report-actions{display:grid;gap:.6rem;margin-top:.8rem}.report-actions button{width:100%}
 #day-review{background:#222329;border:1px solid #404148;border-radius:12px;padding:1rem;margin:1rem 0}#day-review summary{cursor:pointer;font-weight:750}#review-list li{margin:.45rem 0}#report-options:not([hidden]){display:flex;flex-wrap:wrap;gap:.6rem}
 .verification{width:100%;display:grid;gap:.65rem;padding:1rem;border:1px solid #536b76;border-radius:12px;background:#15242e}.verification[hidden]{display:none}.verification textarea,.verification input{font:inherit;color:inherit;background:#101a25;border:1px solid #536b76;border-radius:8px;padding:.7rem;width:100%}.verification small{color:#c8d6d9}.verification .warn{color:#ffcf87}.verification label{display:grid;gap:.3rem}:root{color-scheme:dark}
 body{background:radial-gradient(ellipse at 50% 0,#192b3b 0,transparent 36rem),#090d16;color:#e8f3f5}
@@ -113,7 +116,13 @@ button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:ma
 <div class="terminal-status"><span>◈ Linh thức đã kết nối</span><small>KÊNH RIÊNG CỦA KÝ CHỦ</small></div><div id="chat" role="log" aria-live="polite"></div>
 <div class="actions"><small id="voice-status" role="status"></small>
 <button class="primary" id="action"></button>
-<div id="report-options" hidden>
+<button id="nudge" hidden>Hệ Thống Tông Môn ơi, cứu!</button>
+</div>
+</section>
+<dialog id="report-dialog" aria-labelledby="report-dialog-title">
+  <div class="report-header"><div><strong id="report-dialog-title">◈ Báo cáo cán bộ</strong><small>Hội đồng xét duyệt nhiệm vụ</small></div><button type="button" class="report-close" id="close-report" aria-label="Đóng báo cáo">✕</button></div>
+  <div class="report-bubble" id="report-mission-summary"></div>
+<div id="report-options">
   <div id="verification" class="verification" hidden>
     <strong id="verify-title">Hội đồng xét duyệt</strong>
     <small id="verify-hint"></small>
@@ -123,12 +132,9 @@ button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:ma
     <label><input id="verify-confirm" type="checkbox" style="width:auto"> Tôi xác nhận đã thực hiện nhiệm vụ đúng như mô tả</label>
     <small id="verify-error" class="warn" role="status"></small>
   </div>
-  <button id="submit-mission">Giao nộp nhiệm vụ</button>
-  <button id="skip" hidden>Khó quá cán bộ ơi!</button>
+  <div class="report-actions"><button class="primary" id="submit-mission">Giao nộp nhiệm vụ</button><button id="skip" hidden>Khó quá cán bộ ơi!</button></div>
 </div>
-<button id="nudge" hidden>Hệ Thống Tông Môn ơi, cứu!</button>
-</div>
-</section>
+</dialog>
 <details id="day-review" hidden><summary id="review-title"></summary><ul id="review-list"></ul><small id="review-note"></small></details><footer><small id="stats"></small></footer>
 </main>
 <script>
@@ -451,9 +457,11 @@ function render(animateMission = false, greetingOnly = false) {
   const finished = !active && run.next === run.queue.length;
   el('action').disabled = finished;
   el('action').textContent = active ? 'Báo cáo cán bộ' : finished ? 'Đã hết nhiệm vụ hôm nay' : '◈ Nhận nhiệm vụ tông môn';
-  el('report-options').hidden = !active || !reportOpen;
   el('verification').hidden = !active || !reportOpen;
-  if (active && reportOpen) renderVerification(mission);
+  if (active && reportOpen) {
+    renderVerification(mission);
+    el('report-mission-summary').textContent = 'Nhiệm vụ '+mission.number+'/50 · '+missions[mission.index][0]+'\n'+missions[mission.index][1];
+  }
   el('skip').hidden = !active;
   const attempts = mission?.skipAttempts ?? 0;
   el('skip').textContent = 'Khó quá cán bộ ơi!' + (attempts === 2 && active
@@ -505,11 +513,14 @@ function render(animateMission = false, greetingOnly = false) {
   if (finished) say('Hết lượt hôm nay. Hoàn thành ' + run.cleared + '/50 nhiệm vụ. Hệ Thống Tông Môn xin phép đi nghỉ trước ký chủ.');
 }
 
+el('close-report').onclick = () => el('report-dialog').close();
+el('report-dialog').addEventListener('close', () => { reportOpen = false; });
 el('action').onclick = () => {
   const run = currentRun();
   if (run.mission?.phase === 'active') {
-    reportOpen = !reportOpen;
+    reportOpen = true;
     render();
+    if (!el('report-dialog').open) el('report-dialog').showModal();
     return;
   }
   if (run.next >= run.queue.length) return;
@@ -541,6 +552,7 @@ el('submit-mission').onclick = () => {
   latestResult = mission;
   mission.levelUp = levelFor(state.xp) > before;
   reportOpen = false;
+  if (el('report-dialog').open) el('report-dialog').close();
   save();
   render();
 };
@@ -560,6 +572,7 @@ el('skip').onclick = () => {
   mission.lost = Math.min(state.xp, 5 + levels[mission.index] * 3);
   state.xp -= mission.lost;
   reportOpen = false;
+  if (el('report-dialog').open) el('report-dialog').close();
   mission.phase = 'skipped';
   latestResult = mission;
   (run.skippedIds ??= {})[run.next] = mission.index;

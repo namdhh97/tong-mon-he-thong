@@ -34,3 +34,11 @@ Bản này chưa được kiểm thử end-to-end trong trình duyệt thật. C
 - Ngưỡng tính theo giây nguyên: `floor(durationSeconds * 0.8) + 1`. Ví dụ 5 phút: 4 phút 01 giây; 15 phút: 12 phút 01 giây.
 - Vẫn cần xác nhận, báo cáo hoặc số bước/số mục theo quy tắc riêng.
 - Timer chỉ tính khi tab hiển thị; chưa có xác minh độc lập từ server.
+
+
+## V2.3 — Popup báo cáo cán bộ
+
+- Nhấn **Báo cáo cán bộ** để mở hộp thoại dạng bong bóng chat, không kéo dài trang chính.
+- Trong popup có nội dung nhiệm vụ, thời gian, xác nhận, báo cáo và nút **Giao nộp nhiệm vụ**.
+- Đóng bằng nút ✕ hoặc phím Escape; nội dung đã nhập vẫn được giữ.
+- Giữ nguyên quy tắc thời gian trên 80% và xác minh V2.2.
