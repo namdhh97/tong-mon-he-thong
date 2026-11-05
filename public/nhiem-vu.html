@@ -29,7 +29,8 @@ button:disabled{opacity:.55;cursor:default}
 #contract.signed .contract-copy{animation:seal-reveal .75s ease-out both}
 @keyframes seal-reveal{from{opacity:0;transform:scale(.94);filter:blur(9px)}to{opacity:1;transform:none;filter:none}}
 @media(prefers-reduced-motion:reduce){#contract.signed .contract-copy{animation:none}}
-#day-review{background:#222329;border:1px solid #404148;border-radius:12px;padding:1rem;margin:1rem 0}#day-review summary{cursor:pointer;font-weight:750}#review-list li{margin:.45rem 0}#report-options:not([hidden]){display:flex;flex-wrap:wrap;gap:.6rem}:root{color-scheme:dark}
+#day-review{background:#222329;border:1px solid #404148;border-radius:12px;padding:1rem;margin:1rem 0}#day-review summary{cursor:pointer;font-weight:750}#review-list li{margin:.45rem 0}#report-options:not([hidden]){display:flex;flex-wrap:wrap;gap:.6rem}
+.verification{width:100%;display:grid;gap:.65rem;padding:1rem;border:1px solid #536b76;border-radius:12px;background:#15242e}.verification[hidden]{display:none}.verification textarea,.verification input{font:inherit;color:inherit;background:#101a25;border:1px solid #536b76;border-radius:8px;padding:.7rem;width:100%}.verification small{color:#c8d6d9}.verification .warn{color:#ffcf87}.verification label{display:grid;gap:.3rem}:root{color-scheme:dark}
 body{background:radial-gradient(ellipse at 50% 0,#192b3b 0,transparent 36rem),#090d16;color:#e8f3f5}
 main{margin-block:4vh}
 .signal{color:#a5ffe0}
@@ -113,6 +114,15 @@ button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:ma
 <div class="actions"><small id="voice-status" role="status"></small>
 <button class="primary" id="action"></button>
 <div id="report-options" hidden>
+  <div id="verification" class="verification" hidden>
+    <strong id="verify-title">Hội đồng xét duyệt</strong>
+    <small id="verify-hint"></small>
+    <small id="verify-timer"></small>
+    <label id="verify-report-label" for="verify-report">Báo cáo kết quả<textarea id="verify-report" rows="3" maxlength="600" placeholder="Ký chủ đã làm gì? Kết quả ra sao?"></textarea></label>
+    <label id="verify-count-label" for="verify-count" hidden>Số lượng đã thực hiện<input id="verify-count" type="number" min="0" max="100" step="1" value="0"></label>
+    <label><input id="verify-confirm" type="checkbox" style="width:auto"> Tôi xác nhận đã thực hiện nhiệm vụ đúng như mô tả</label>
+    <small id="verify-error" class="warn" role="status"></small>
+  </div>
   <button id="submit-mission">Giao nộp nhiệm vụ</button>
   <button id="skip" hidden>Khó quá cán bộ ơi!</button>
 </div>
@@ -212,6 +222,22 @@ packs.forEach(([name, task, variants], tier) => {
     levels.push(tier);
   });
 });
+// V2: quy tắc xác minh gắn với ID nhiệm vụ, không suy đoán bằng từ khóa.
+// Timer tính thời gian trang đang hiển thị; yêu cầu trên 80% thời lượng. Đây là kiểm tra UX, không phải bằng chứng tuyệt đối.
+const verifyRules = missions.map((_, index) => ({ type: 'report', minSeconds: 0, minWords: 4, hint: 'Nêu một kết quả cụ thể, không cần tiết lộ thông tin riêng tư.' }));
+function rule(index, options) { Object.assign(verifyRules[index], options); }
+for (const i of [0, 4, 5, 7, 11, 18]) rule(i, {type:'confirm', minWords:0, hint:'Tự xác nhận trung thực sau khi thực hiện.'});
+for (const i of [1, 9]) rule(i, {type:'quantity', count:3, hint:'Nêu ba món đã cất hoặc ảnh đã xóa.'});
+rule(15, {type:'steps', count:3, hint:'Ghi ba bước đã chia và kết quả của bước đầu.'});
+for (const [i, minutes] of [[5,0.5],[7,1],[12,15],[13,20],[14,60],[16,45],[21,15],[22,30],[23,30]]) {
+  rule(i, {type:'timer_report', minSeconds:minutes*60, hint:'Sau khi đủ thời gian, nêu kết quả cụ thể.'});
+}
+// 60 nhiệm vụ tạo từ packs, mỗi nhóm có quy tắc xác minh tường minh.
+for (let i=0; i<60; i++) {
+  const index=24+i, pack=Math.floor(i/10);
+  if (pack===0 || pack===1) rule(index, {type:'report', minWords:4, hint:'Nêu tên đã đặt hoặc vật chứng tìm thấy.'});
+  else rule(index, {type:'timer_report', minSeconds:[0,0,180,300,480,720][pack], hint:'Nêu kết quả thực tế sau khi hoàn thành phiên.'});
+}
 const quota = [8, 7, 5, 12, 10, 8];
 const roasts = [
   'Đơn xin bỏ qua đã được đọc rất kỹ. Hệ Thống Tông Môn mất đúng một giây để đóng dấu TỪ CHỐI.',
@@ -329,6 +355,76 @@ function renderReview(run) {
 }
 
 
+const normalizeReport = value => value.toLocaleLowerCase('vi').normalize('NFC').replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ');
+function verifyState(mission) {
+  return (mission.verification ??= { elapsedSeconds:0, lastTick:null, report:'', count:0, attempts:0, confirmed:false });
+}
+function tickVerification() {
+  const mission=state.run?.mission;
+  if (!mission || mission.phase!=='active') return;
+  const v=verifyState(mission), now=Date.now();
+  if (v.lastTick && document.visibilityState==='visible' && now>=v.lastTick && now-v.lastTick<=2500) {
+    v.elapsedSeconds += Math.min(2, (now-v.lastTick)/1000);
+  }
+  v.lastTick=document.visibilityState==='visible'?now:null;
+  if (document.getElementById('verify-timer')) updateVerifyTimer(mission);
+  if (Math.floor(v.elapsedSeconds)%5===0 && Math.floor(v.elapsedSeconds)!==v.lastSavedSecond) {
+    v.lastSavedSecond=Math.floor(v.elapsedSeconds); save();
+  }
+}
+const MIN_DURATION_RATIO = 0.8;
+function requiredVerificationSeconds(rule) {
+  return rule.minSeconds > 0 ? Math.floor(rule.minSeconds * MIN_DURATION_RATIO) + 1 : 0;
+}
+function updateVerifyTimer(mission) {
+  const r=verifyRules[mission.index], v=verifyState(mission);
+  const minimum=requiredVerificationSeconds(r);
+  el('verify-timer').textContent=r.minSeconds>0
+    ? '⏱ Đã thực hiện: '+Math.floor(v.elapsedSeconds/60)+'p '+Math.floor(v.elapsedSeconds%60)+'s. Có thể giao nộp sau '+Math.floor(minimum/60)+'p '+(minimum%60)+'s (trên 80% của '+Math.ceil(r.minSeconds/60)+' phút; chỉ tính khi trang đang mở)'
+    : '◈ Nhiệm vụ không yêu cầu bộ đếm thời gian.';
+}
+function renderVerification(mission) {
+  const r=verifyRules[mission.index], v=verifyState(mission);
+  el('verification').hidden=false;
+  el('verify-title').textContent='◈ Hội đồng xét duyệt · '+({confirm:'Xác nhận nhanh',quantity:'Kiểm kê',steps:'Nhiều bước',timer_report:'Thời gian & kết quả',report:'Báo cáo'}[r.type]);
+  el('verify-hint').textContent=r.hint;
+  el('verify-report-label').hidden=r.type==='confirm';
+  el('verify-count-label').hidden=!r.count;
+  el('verify-count-label').firstChild.textContent='Số mục/bước đã thực hiện (yêu cầu '+r.count+')';
+  el('verify-report').value=v.report;
+  el('verify-count').value=v.count;
+  el('verify-confirm').checked=v.confirmed;
+  el('verify-error').textContent=v.error||'';
+  updateVerifyTimer(mission);
+}
+function validateVerification(mission) {
+  const r=verifyRules[mission.index], v=verifyState(mission);
+  v.attempts++;
+  if (!v.confirmed) return 'Ký chủ cần xác nhận đã thực hiện nhiệm vụ.';
+  if (r.minSeconds>0 && v.elapsedSeconds < requiredVerificationSeconds(r)) return 'Chưa đủ trên 80% thời lượng nhiệm vụ. Hãy tiếp tục thực hiện.';
+  if (r.count && v.count<r.count) return 'Chưa đủ '+r.count+' mục/bước yêu cầu.';
+  if (r.type!=='confirm') {
+    const normalized=normalizeReport(v.report);
+    const words=normalized.split(' ').filter(Boolean);
+    if (words.length<r.minWords || new Set(words).size<Math.min(4,r.minWords)) return 'Hãy ghi kết quả cụ thể hơn (ít nhất '+r.minWords+' từ có ý nghĩa).';
+    if (/^(.)\1+$/.test(normalized.replace(/ /g,''))) return 'Báo cáo chỉ gồm ký tự lặp. Hãy mô tả kết quả thực tế.';
+    if ((state.verificationHistory||[]).some(h=>h.report===normalized)) return 'Báo cáo này đã được dùng trước đó. Hãy mô tả kết quả của nhiệm vụ hiện tại.';
+  }
+  return '';
+}
+// Chỉ lưu bản báo cáo đã duyệt, tránh tích lũy dữ liệu riêng tư quá lâu.
+function recordVerification(mission) {
+  const v=verifyState(mission);
+  (state.verificationHistory??=[]).push({day:state.run.day,index:mission.index,report:normalizeReport(v.report),at:new Date().toISOString()});
+  state.verificationHistory=state.verificationHistory.slice(-100);
+  v.verifiedAt=new Date().toISOString();
+}
+setInterval(tickVerification,1000);
+document.addEventListener('visibilitychange',()=>{const v=state.run?.mission?.verification;if(v){v.lastTick=null;save();}});
+window.addEventListener('pagehide',()=>{const v=state.run?.mission?.verification;if(v)v.lastTick=null;save();});
+el('verify-report').addEventListener('input',e=>{const m=currentRun().mission;if(m?.phase==='active'){verifyState(m).report=e.target.value;verifyState(m).error='';save();}});
+el('verify-count').addEventListener('input',e=>{const m=currentRun().mission;if(m?.phase==='active'){verifyState(m).count=Math.max(0,Number(e.target.value)||0);save();}});
+el('verify-confirm').addEventListener('change',e=>{const m=currentRun().mission;if(m?.phase==='active'){verifyState(m).confirmed=e.target.checked;save();}});
 let latestResult;
 let reportOpen = false;
 function render(animateMission = false, greetingOnly = false) {
@@ -351,10 +447,13 @@ function render(animateMission = false, greetingOnly = false) {
   el('chat').replaceChildren();
   const mission = run.mission;
   const active = mission?.phase === 'active';
+  if (active) { const v=verifyState(mission); if(!v.lastTick && document.visibilityState==='visible') v.lastTick=Date.now(); }
   const finished = !active && run.next === run.queue.length;
   el('action').disabled = finished;
-  el('action').textContent = active ? 'Báo cáo cán bộ' : finished ? 'Đã hết nhiệm vụ hôm nay' : '◈ Mở thông báo mới';
+  el('action').textContent = active ? 'Báo cáo cán bộ' : finished ? 'Đã hết nhiệm vụ hôm nay' : '◈ Nhận nhiệm vụ tông môn';
   el('report-options').hidden = !active || !reportOpen;
+  el('verification').hidden = !active || !reportOpen;
+  if (active && reportOpen) renderVerification(mission);
   el('skip').hidden = !active;
   const attempts = mission?.skipAttempts ?? 0;
   el('skip').textContent = 'Khó quá cán bộ ơi!' + (attempts === 2 && active
@@ -368,7 +467,7 @@ function render(animateMission = false, greetingOnly = false) {
     return;
   }
   if (mission && !active && mission !== latestResult) {
-    say('Nhiệm vụ trước đã được xử lý. Mở thông báo mới để nhận nhiệm vụ ' + (run.next + 1) + '/50.');
+    say('Nhiệm vụ trước đã được xử lý. Nhận nhiệm vụ tông môn để nhận nhiệm vụ ' + (run.next + 1) + '/50.');
     return;
   }
   if (!mission) {
@@ -410,12 +509,13 @@ el('action').onclick = () => {
   const run = currentRun();
   if (run.mission?.phase === 'active') {
     reportOpen = !reportOpen;
-    el('report-options').hidden = !reportOpen;
+    render();
     return;
   }
   if (run.next >= run.queue.length) return;
   const index = run.queue[run.next];
   run.mission = { index, number: run.next + 1, phase: 'active', reward: rewards[levels[index]] };
+  verifyState(run.mission).lastTick=Date.now();
   reportOpen = false;
 
   save();
@@ -426,6 +526,12 @@ el('submit-mission').onclick = () => {
   const run = currentRun();
   const mission = run.mission;
   if (!reportOpen || mission?.phase !== 'active') return;
+  const v=verifyState(mission);
+  v.error=validateVerification(mission);
+  if (v.error) { save(); render(); return; }
+  // Trạng thái xét duyệt trung gian giúp ngăn nộp trùng trong cùng phiên.
+  mission.phase='pending_verification';
+  recordVerification(mission);
   const before = levelFor(state.xp);
   state.xp += mission.reward ?? missions[mission.index][2];
   state.done++;
