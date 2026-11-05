@@ -42,3 +42,9 @@ Bản này chưa được kiểm thử end-to-end trong trình duyệt thật. C
 - Trong popup có nội dung nhiệm vụ, thời gian, xác nhận, báo cáo và nút **Giao nộp nhiệm vụ**.
 - Đóng bằng nút ✕ hoặc phím Escape; nội dung đã nhập vẫn được giữ.
 - Giữ nguyên quy tắc thời gian trên 80% và xác minh V2.2.
+
+
+## V2.5 — Gợi ý và hồi chiêu
+- Nhận gợi ý sẽ tự đóng popup báo cáo để đọc hội thoại.
+- Lưu các gợi ý trong nhiệm vụ và hiển thị lại khi render.
+- Trong popup báo cáo có dòng hồi chiêu hài hước và đếm ngược 30 giây.

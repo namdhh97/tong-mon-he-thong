@@ -31,7 +31,7 @@ button:disabled{opacity:.55;cursor:default}
 @media(prefers-reduced-motion:reduce){#contract.signed .contract-copy{animation:none}}
 #report-dialog{width:min(490px,calc(100% - 24px));max-height:min(86dvh,760px);overflow-y:auto;overscroll-behavior:contain;background:#101d2a;color:#e8f3f5;border:1px solid #507c8b;border-radius:22px;padding:1.1rem;box-shadow:0 25px 90px #000b}
 #report-dialog::backdrop{background:#050c16c9;backdrop-filter:blur(5px)}
-.report-header{display:flex;align-items:start;justify-content:space-between;gap:1rem;margin-bottom:.85rem}.report-header strong{font-size:1.08rem;color:#a5ffe0}.report-header small{display:block;margin-top:.3rem;color:#a8bbc8}.report-close{padding:.35rem .7rem;min-height:38px;flex:none}.report-bubble{background:#192b3b;border:1px solid #36576a;border-radius:18px 18px 18px 5px;padding:.85rem;margin-bottom:.9rem;white-space:pre-line;overflow-wrap:anywhere}.report-actions{display:grid;gap:.6rem;margin-top:.8rem}.report-actions button{width:100%}
+.report-header{display:flex;align-items:start;justify-content:space-between;gap:1rem;margin-bottom:.85rem}.report-header strong{font-size:1.08rem;color:#a5ffe0}.report-header small{display:block;margin-top:.3rem;color:#a8bbc8}.report-close{padding:.35rem .7rem;min-height:38px;flex:none}.report-bubble{background:#192b3b;border:1px solid #36576a;border-radius:18px 18px 18px 5px;padding:.85rem;margin-bottom:.9rem;white-space:pre-line;overflow-wrap:anywhere}.report-actions{display:grid;gap:.6rem;margin-top:.8rem}.report-actions button{width:100%}.help-cooldown{display:block;margin-top:.45rem;padding:.55rem .7rem;border:1px dashed #57788a;border-radius:10px;background:#142838;color:#b6d5df;font-size:.78rem;line-height:1.5}.help-cooldown[hidden]{display:none}
 #day-review{background:#222329;border:1px solid #404148;border-radius:12px;padding:1rem;margin:1rem 0}#day-review summary{cursor:pointer;font-weight:750}#review-list li{margin:.45rem 0}#report-options:not([hidden]){display:flex;flex-wrap:wrap;gap:.6rem}
 .verification{width:100%;display:grid;gap:.65rem;padding:1rem;border:1px solid #536b76;border-radius:12px;background:#15242e}.verification[hidden]{display:none}.verification textarea,.verification input{font:inherit;color:inherit;background:#101a25;border:1px solid #536b76;border-radius:8px;padding:.7rem;width:100%}.verification small{color:#c8d6d9}.verification .warn{color:#ffcf87}.verification label{display:grid;gap:.3rem}:root{color-scheme:dark}
 body{background:radial-gradient(ellipse at 50% 0,#192b3b 0,transparent 36rem),#090d16;color:#e8f3f5}
@@ -136,7 +136,7 @@ button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:ma
     <label><input id="verify-confirm" type="checkbox" style="width:auto"> Tôi xác nhận đã thực hiện nhiệm vụ đúng như mô tả</label>
     <small id="verify-error" class="warn" role="status"></small>
   </div>
-  <div class="report-actions"><button class="primary" id="submit-mission">Giao nộp nhiệm vụ</button><button id="skip" hidden>Khó quá cán bộ ơi!</button></div>
+  <div class="report-actions"><button class="primary" id="submit-mission">Giao nộp nhiệm vụ</button><button id="skip" hidden>Khó quá cán bộ ơi!</button><small id="help-cooldown" class="help-cooldown" role="status" hidden></small></div>
 </div>
 </dialog>
 <details id="day-review" hidden><summary id="review-title"></summary><ul id="review-list"></ul><small id="review-note"></small></details><footer><small id="stats"></small><div id="discipline" role="status"></div></footer>
@@ -470,6 +470,21 @@ window.addEventListener('pagehide',()=>{const v=state.run?.mission?.verification
 el('verify-report').addEventListener('input',e=>{const m=currentRun().mission;if(m?.phase==='active'){verifyState(m).report=e.target.value;verifyState(m).error='';save();}});
 el('verify-count').addEventListener('input',e=>{const m=currentRun().mission;if(m?.phase==='active'){verifyState(m).count=Math.max(0,Number(e.target.value)||0);save();}});
 el('verify-confirm').addEventListener('change',e=>{const m=currentRun().mission;if(m?.phase==='active'){verifyState(m).confirmed=e.target.checked;save();}});
+const cooldownJokes = [
+  '◈ Hệ thống vừa hao tổn 300 năm tu vi để hỗ trợ ký chủ… và lời khuyên nghe khá giống lời mẹ dặn.',
+  '◈ Trưởng lão đang nạp lại linh lực. Bộ não hệ thống đã chạy hết công suất cho một gợi ý hơi hiển nhiên.',
+  '◈ Linh thạch đang sạc. Hệ thống vừa hiến tế ba sợi tóc tưởng tượng để giúp ký chủ.',
+  '◈ Cán bộ đang bế quan hồi sức sau pha tư vấn chấn động tam giới.'
+];
+function updateHelpCooldown(mission) {
+  const box=el('help-cooldown');
+  const remaining=Math.max(0,(mission?.helpNextAt??0)-Date.now());
+  box.hidden=!mission || mission.phase!=='active' || remaining===0;
+  if(remaining) {
+    const count=mission.skipAttempts??1;
+    box.textContent=cooldownJokes[(count-1)%cooldownJokes.length]+' Hồi chiêu còn '+Math.ceil(remaining/1000)+' giây.';
+  } else box.textContent='';
+}
 let latestResult;
 let reportOpen = false;
 function render(animateMission = false, greetingOnly = false) {
@@ -508,7 +523,8 @@ function render(animateMission = false, greetingOnly = false) {
   const attempts = mission?.skipAttempts ?? 0;
   const wait=Math.max(0,(mission?.helpNextAt??0)-Date.now());
   el('skip').disabled = remaining>0 || wait>0;
-  el('skip').textContent = wait>0 ? 'Cán bộ đang xử lý · '+Math.ceil(wait/1000)+'s' : attempts>=2
+  updateHelpCooldown(mission);
+  el('skip').textContent = wait>0 ? 'Linh lực đang hồi chiêu · '+Math.ceil(wait/1000)+'s' : attempts>=2
     ? 'Xin bỏ nhiệm vụ (−'+penaltyForNextSkip()+' điểm kỷ luật)' : 'Khó quá cán bộ ơi! · Gợi ý '+(attempts+1)+'/2';
   el('nudge').hidden = !active || levels[mission.index] < 3;
   say('Xin chào ký chủ ' + (state.host || '') + '. Tôi là Hệ Thống Tông Môn của ký chủ.');
@@ -545,6 +561,10 @@ function render(animateMission = false, greetingOnly = false) {
   } else {
     say(briefing);
     if (active) el('chat').lastElementChild.classList.add('pinned-mission');
+  }
+  for (const help of (mission.helpMessages||[])) {
+    say('Ký chủ xin cán bộ trợ giúp lần '+help.number+'/2.', 'me');
+    say('◈ Cán bộ: '+help.hint+' Chờ 30 giây trước khi xin hỗ trợ tiếp.');
   }
   if (mission.phase === 'done') {
     say('Báo cáo, ký chủ đã hoàn thành!', 'me');
@@ -630,9 +650,11 @@ el('skip').onclick = () => {
     const hint=mission.skipAttempts===1
       ? 'Hãy chia nhiệm vụ thành bước nhỏ nhất và thực hiện bước đó trước.'
       : 'Thử cách đơn giản hơn: tập trung vào một kết quả nhỏ có thể kiểm chứng.';
+    (mission.helpMessages??=[]).push({number:mission.skipAttempts,hint});
+    reportOpen=false;
+    if(el('report-dialog').open) el('report-dialog').close();
     save();render();
-    say('Ký chủ xin cán bộ trợ giúp lần '+mission.skipAttempts+'/2.', 'me');
-    say('◈ Cán bộ: '+hint+' Chờ 30 giây trước khi xin hỗ trợ tiếp.');
+    el('chat').scrollTop=el('chat').scrollHeight;
     return;
   }
   showDisciplineNotice('⚠ Xác nhận bỏ nhiệm vụ',
@@ -652,7 +674,8 @@ setInterval(()=>{
   if(mission?.phase==='active') {
     const wait=Math.max(0,(mission.helpNextAt??0)-Date.now());
     el('skip').disabled=remaining>0 || wait>0;
-    el('skip').textContent=wait>0?'Cán bộ đang xử lý · '+Math.ceil(wait/1000)+'s'
+    updateHelpCooldown(mission);
+    el('skip').textContent=wait>0?'Linh lực đang hồi chiêu · '+Math.ceil(wait/1000)+'s'
       :(mission.skipAttempts??0)>=2?'Xin bỏ nhiệm vụ (−'+penaltyForNextSkip()+' điểm kỷ luật)'
       :'Khó quá cán bộ ơi! · Gợi ý '+((mission.skipAttempts??0)+1)+'/2';
   }
