@@ -89,6 +89,8 @@ button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:ma
 #discipline{font-size:.82rem;color:#f3bb7b}#discipline.locked{color:#ff8d8d}
 #discipline-dialog{width:min(26rem,calc(100% - 2rem));border:1px solid #b88855;border-radius:16px;padding:1.25rem;background:#171e2c;color:#f6e8d0;box-shadow:0 15px 50px #0009}
 #discipline-dialog::backdrop{background:#080d16bd}#discipline-dialog h2{font-size:1.15rem;margin:0 0 .75rem}#discipline-dialog p{white-space:pre-line;line-height:1.6}#discipline-dialog .report-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+
+.progress-hub{display:grid;gap:.8rem;margin:1rem 0}.progress-hub>details{border:1px solid #34576a;border-radius:14px;padding:.8rem 1rem;background:#101d2a}.progress-hub summary{cursor:pointer;color:#a5ffe0;font-weight:750}.progress-hub small{color:#abc2cc}.achievement-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.55rem;margin-top:.8rem}.achievement-card{border:1px solid #34576a;border-radius:10px;padding:.7rem;background:#152735}.achievement-card.unlocked{border-color:#b2d98e;background:#20342f}.achievement-card strong{display:block;margin-bottom:.3rem}.achievement-card progress{width:100%;accent-color:#a5ffe0}.chapter{margin:.7rem 0;padding:.75rem;border-left:3px solid #a5ffe0;background:#152735;border-radius:8px;white-space:pre-line}.chapter.locked{opacity:.5}.officer-memory{white-space:pre-line;color:#cce5db;margin:.6rem 0}#title-select{width:min(100%,420px)}
 </style>
 <dialog id="contract" aria-labelledby="contract-title">
   <div class="aura" aria-hidden="true"><span></span><b>◈</b></div>
@@ -139,6 +141,11 @@ button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:ma
   <div class="report-actions"><button class="primary" id="submit-mission">Giao nộp nhiệm vụ</button><button id="skip" hidden>Khó quá cán bộ ơi!</button><small id="help-cooldown" class="help-cooldown" role="status" hidden></small></div>
 </div>
 </dialog>
+<section class="progress-hub" aria-label="Hành trình ký chủ">
+<details id="achievements-panel"><summary>🏅 Thành tựu và danh hiệu <span id="achievement-total"></span></summary><p><label for="title-select">Danh hiệu đang trang bị</label><select id="title-select"></select></p><div id="achievement-grid" class="achievement-grid"></div></details>
+<details id="story-panel"><summary>📜 Thiên Mệnh Ký Chủ · Cốt truyện <span id="story-progress"></span></summary><div id="story-chapters"></div></details>
+<details id="officer-panel"><summary>🧠 Cán bộ số 007 · Ký ức hệ thống</summary><p id="officer-memory" class="officer-memory"></p></details>
+</section>
 <details id="day-review" hidden><summary id="review-title"></summary><ul id="review-list"></ul><small id="review-note"></small></details><footer><small id="stats"></small><div id="discipline" role="status"></div></footer>
 </main>
 <script>
@@ -408,6 +415,86 @@ if (!state.deviceSeed) {
 }
 const el = id => document.getElementById(id);
 const HELP_COOLDOWN_MS = 30000;
+
+// V2.7: dữ liệu bổ sung độc lập, không thay đổi khóa lưu trữ và tiến trình V2.6.
+const CHAPTERS = [
+  {at:0,title:'Chương 0 · Khế Ước Định Mệnh',body:'[Đinh!] Hệ Thống đã chọn được ký chủ.\nĐánh giá căn cốt: chưa rõ. Đánh giá khả năng trì hoãn: đáng quan ngại.\nCán bộ 007 được điều động để biến những việc đời thường thành kinh nghiệm tu luyện. Hệ Thống không giao việc vì rảnh; mỗi hành động hoàn thành là một lần ký chủ chứng minh mình có thể tiến bộ.'},
+  {at:10,title:'Chương 1 · Tân Thủ Có Triển Vọng',body:'[Báo cáo sau 10 nhiệm vụ] Ký chủ đã chứng minh khả năng bắt đầu và hoàn thành. Cán bộ 007 đề nghị cấp thêm ngân sách khen thưởng, nhưng phòng tài vụ chỉ cấp một tràng pháo tay. Từ đây, Hệ Thống tiếp tục thử thách những thói quen thường ngày.'},
+  {at:50,title:'Chương 2 · Thiên Phú Không Ổn Định',body:'[Báo cáo sau 50 nhiệm vụ] Hệ Thống ghi nhận phong cách tu luyện riêng của ký chủ. Không phải mọi việc đều vĩ đại, nhưng sự kiên trì đang tạo ra thay đổi. Cán bộ 007 đã ngừng nghi ngờ đây là lỗi tuyển chọn... tạm thời.'},
+  {at:150,title:'Chương 3 · Khảo Nghiệm Ý Chí',body:'[Báo cáo sau 150 nhiệm vụ] Hệ Thống không còn chỉ đo sức mạnh, mà đang kiểm tra khả năng trở lại sau những lần chùn bước. Cán bộ 007 bắt đầu ghi chép những chiến thắng nhỏ thành hồ sơ truyền kỳ.'},
+  {at:300,title:'Chương 4 · Bí Mật Của Hệ Thống',body:'[Báo cáo sau 300 nhiệm vụ] Bí mật được hé lộ: Hệ Thống không tìm kiếm thiên tài bẩm sinh. Nó tìm một ký chủ có thể tiến bộ từng chút một, ngay cả khi việc phải làm chỉ là dọn chiếc bàn. Cán bộ 007 xin xác nhận: đây không phải chiêu trò để tiết kiệm ngân sách pháp bảo.'}
+];
+const ACHIEVEMENTS = [
+  ...[1,5,10,20,30,50,75,100,150,200,300,500].map((at,i)=>({id:'done-'+at,name:['Khai Môn','Tập Sự Chăm Chỉ','Thập Nhiệm Hộ Pháp','Hành Động Phái','Bền Bỉ Tiên Sinh','Kiên Tâm Đạo Giả','Hành Giả','Bách Nhiệm Chân Nhân','Bất Khuất','Song Bách Hộ Pháp','Tam Bách Thiên Tôn','Ngũ Bách Truyền Kỳ'][i],type:'done',at})),
+  ...[2,3,5,7,10,15,20,30].map(at=>({id:'streak-'+at,name:'Liên Hoàn '+at+' Chiêu',type:'bestStreak',at})),
+  ...[5,10,25,50,100,200].map(at=>({id:'useful-'+at,name:'Thực Chiến '+at+' Ấn',type:'useful',at})),
+  ...[5,10,25,50,100,200].map(at=>({id:'fun-'+at,name:'Vô Tri '+at+' Kiếp',type:'fun',at})),
+  ...[1,3,5,10].map(at=>({id:'help-'+at,name:'Triệu Hồi Cán Bộ '+at, type:'help',at})),
+  ...[1,2,3,4].map(at=>({id:'chapter-'+at,name:'Thiên Mệnh · Chương '+at,type:'chapter',at}))
+];
+function memoryState() {
+  const m=state.officerMemory??={useful:0,fun:0,help:0,streak:0,bestStreak:0,skips:0,lastSeen:Date.now(),lastGreetingDay:'',recentLines:[],unlocked:[],equippedTitle:''};
+  for(const k of ['useful','fun','help','streak','bestStreak','skips']) if(!Number.isFinite(m[k])) m[k]=0;
+  if(!Array.isArray(m.recentLines)) m.recentLines=[];
+  if(!Array.isArray(m.unlocked)) m.unlocked=[];
+  return m;
+}
+function achievementValue(a) {
+  const m=memoryState();
+  if(a.type==='done') return state.done;
+  if(a.type==='chapter') return CHAPTERS.filter(c=>state.done>=c.at).length-1;
+  return m[a.type]||0;
+}
+function officerLine(event) {
+  const m=memoryState(), n=state.done;
+  const options={
+    complete:[`Nhiệm vụ thứ ${n} đã được ghi nhận. Bộ phận thống kê đang vỗ tay bằng một tay vì tay kia còn đóng dấu.`,`Ký chủ lại làm được rồi! Ta bắt đầu nghi ngờ hồ sơ ghi 'hay trì hoãn' đã lỗi thời.`,`Hệ Thống cấp XP, còn ta cấp lời khen. Đừng hỏi lời khen có quy đổi linh thạch được không.`],
+    help:[`Cán bộ 007 đã hiến tế một chút linh lực để gợi ý. Hiệu quả phụ thuộc vào việc ký chủ có chịu bắt đầu hay không.`,`Gợi ý đã gửi. Ta phải nằm dưỡng sức 30 giây vì suy nghĩ quá sâu về một việc rất đơn giản.`],
+    skip:[`Đã ghi nhận lần bỏ nhiệm vụ thứ ${m.skips}. Hồ sơ này dày lên nhanh hơn kinh thư.`,`Thất bại không đáng sợ. Đáng sợ là ký chủ để ta phải làm biên bản lần nữa.`],
+    return:[`Ký chủ đã quay lại! Ta vừa định gửi đội tìm kiếm tới khu vực chăn gối.`,`Hệ Thống nhận diện ký chủ trở lại. Cán bộ 007 đã cất tờ đơn xin nghỉ việc.`]
+  };
+  const arr=options[event]||options.complete;
+  const line=arr[(n+m.help+m.skips)%arr.length];
+  m.recentLines.push(line);m.recentLines=m.recentLines.slice(-5);
+  return line;
+}
+function syncAchievements() {
+  const m=memoryState();
+  const newly=ACHIEVEMENTS.filter(a=>achievementValue(a)>=a.at&&!m.unlocked.includes(a.id));
+  for(const a of newly) m.unlocked.push(a.id);
+  return newly;
+}
+function renderProgressHub() {
+  const m=memoryState();syncAchievements();
+  const unlocked=new Set(m.unlocked);
+  el('achievement-total').textContent=`(${unlocked.size}/${ACHIEVEMENTS.length})`;
+  const select=el('title-select');
+  const equipped=m.equippedTitle;
+  select.replaceChildren(new Option('Chưa trang bị danh hiệu',''));
+  for(const a of ACHIEVEMENTS.filter(a=>unlocked.has(a.id))) select.add(new Option(a.name,a.id));
+  select.value=unlocked.has(equipped)?equipped:'';
+  const grid=el('achievement-grid');grid.replaceChildren();
+  for(const a of ACHIEVEMENTS){
+    const done=unlocked.has(a.id), v=Math.min(a.at,achievementValue(a));
+    const item=document.createElement('div');item.className='achievement-card'+(done?' unlocked':'');
+    const name=document.createElement('strong');name.textContent=(done?'🏅 ':'🔒 ')+a.name;
+    const desc=document.createElement('small');desc.textContent=`${v}/${a.at} · ${a.type==='done'?'Nhiệm vụ hoàn thành':a.type==='bestStreak'?'Chuỗi hoàn thành tốt nhất':a.type==='useful'?'Nhiệm vụ có ích':a.type==='fun'?'Nhiệm vụ giải trí':a.type==='help'?'Lượt xin trợ giúp':'Chương cốt truyện'}`;
+    const bar=document.createElement('progress');bar.max=a.at;bar.value=v;
+    item.append(name,desc,bar);grid.append(item);
+  }
+  el('story-progress').textContent=`(${CHAPTERS.filter(c=>state.done>=c.at).length}/${CHAPTERS.length})`;
+  const chapters=el('story-chapters');chapters.replaceChildren();
+  for(const c of CHAPTERS){
+    const unlockedChapter=state.done>=c.at;
+    const section=document.createElement('div');section.className='chapter'+(unlockedChapter?'':' locked');
+    const heading=document.createElement('strong');heading.textContent=(unlockedChapter?'📖 ':'🔒 ')+c.title;
+    const body=document.createElement('p');body.textContent=unlockedChapter?c.body.replace(/\\n/g,'\n'):`Mở khóa khi hoàn thành ${c.at} nhiệm vụ (${state.done}/${c.at}).`;
+    section.append(heading,body);chapters.append(section);
+  }
+  el('officer-memory').textContent=`Cán bộ 007 nhớ: ${state.done} nhiệm vụ đã hoàn thành; ${m.useful} nhiệm vụ có ích; ${m.fun} nhiệm vụ giải trí; chuỗi tốt nhất ${m.bestStreak}; ${m.help} lần xin gợi ý; ${m.skips} lần bỏ nhiệm vụ.\n\nLời cán bộ gần đây:\n${m.recentLines.slice(-3).map(x=>'◈ '+x).join('\n')||'Chưa có ghi chép.'}`;
+}
+el('title-select').addEventListener('change',e=>{const m=memoryState();if(!e.target.value||m.unlocked.includes(e.target.value)){m.equippedTitle=e.target.value;save();render();}});
+
 function normalizeDiscipline() {
   if (!Number.isFinite(state.discipline)) state.discipline=0;
   if (!Number.isInteger(state.banCount) || state.banCount<0) state.banCount=0;
@@ -602,10 +689,12 @@ let reportOpen = false;
 function render(animateMission = false, greetingOnly = false) {
 
   const run = currentRun();
+  renderProgressHub();
   const remaining=banRemaining();
   const level = levelFor(state.xp);
   el('score').textContent = 'Cấp ' + level + ' / ' + MAX_LEVEL + ' · ' + xpLabel(state.xp) + ' XP';
-  el('rank-title').textContent = rankFor(level);
+  const equipped=ACHIEVEMENTS.find(a=>a.id===memoryState().equippedTitle);
+  el('rank-title').textContent = rankFor(level)+(equipped?' · 🏅 '+equipped.name:'');
   const atMax = level === MAX_LEVEL;
   const earned = state.xp - thresholds[level - 1];
   const required = atMax ? 1 : thresholds[level] - thresholds[level - 1];
@@ -640,6 +729,7 @@ function render(animateMission = false, greetingOnly = false) {
     ? 'Xin bỏ nhiệm vụ (−'+penaltyForNextSkip()+' điểm kỷ luật)' : 'Khó quá cán bộ ơi! · Gợi ý '+(attempts+1)+'/2';
   el('nudge').hidden = !active || levels[mission.index] < 3;
   say('Xin chào ký chủ ' + (state.host || '') + '. Tôi là Hệ Thống Tông Môn của ký chủ.');
+  if(memoryState().recentLines.length) say('◈ Cán bộ 007: '+memoryState().recentLines.at(-1));
   if (greetingOnly) return;
   if (remaining) { say('⛔ Ký chủ đang bị khai trừ tạm thời. Chưa thể nhận hoặc giao nộp nhiệm vụ. Hãy chờ hết thời gian kỷ luật.'); return; }
   if (finished && mission !== latestResult) {
@@ -685,7 +775,7 @@ function render(animateMission = false, greetingOnly = false) {
   }
   if (mission.phase === 'done') {
     say('Báo cáo, ký chủ đã hoàn thành!', 'me');
-    say('🎁 +' + xp + ' XP. ' + jokes[mission.index % jokes.length] + (mission.levelUp ? '\nLên cấp ' + level + ' • ' + rankFor(level) : ''));
+    say('🎁 +' + xp + ' XP. ' + jokes[mission.index % jokes.length] + (mission.levelUp ? '\nLên cấp ' + level + ' • ' + rankFor(level) : '') + (mission.newAwards?.length?'\n🏅 Thành tựu mới: '+mission.newAwards.join(', '):''));
   }
   if (mission.phase === 'skipped') {
     say('Ký chủ xin bỏ qua.', 'me');
@@ -728,7 +818,13 @@ el('submit-mission').onclick = () => {
   const before = levelFor(state.xp);
   state.xp += mission.reward ?? missions[mission.index][2];
   state.done++;
+  const memory=memoryState();
+  memory[missionKinds[mission.index]==='fun'?'fun':'useful']++;
+  memory.streak++;memory.bestStreak=Math.max(memory.bestStreak,memory.streak);
   state.skipStreak=0;
+  officerLine('complete');
+  const newAwards=syncAchievements();
+  mission.newAwards=newAwards.map(a=>a.name);
   run.cleared++;
   run.next++;
   mission.phase = 'done';
@@ -743,6 +839,7 @@ function finalizeSkip() {
   const run=currentRun(),mission=run.mission;
   if (!mission || mission.phase!=='active' || banRemaining()) return;
   mission.officerReply=randomDialogue(officerLines);
+  const mem=memoryState();mem.skips++;mem.streak=0;officerLine('skip');
   const result=applySkipPenalty();
   mission.lost=result.loss;
   mission.phase='skipped';
@@ -763,6 +860,7 @@ el('skip').onclick = () => {
   if(Date.now()<(mission.helpNextAt??0)) return;
   if((mission.skipAttempts??0)<2) {
     mission.skipAttempts=(mission.skipAttempts??0)+1;
+    memoryState().help++;officerLine('help');syncAchievements();
     mission.helpNextAt=Date.now()+HELP_COOLDOWN_MS;
     const hint=mission.skipAttempts===1
       ? 'Hãy chia nhiệm vụ thành bước nhỏ nhất và thực hiện bước đó trước.'
