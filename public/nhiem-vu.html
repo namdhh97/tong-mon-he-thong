@@ -232,6 +232,110 @@ packs.forEach(([name, task, variants], tier) => {
     levels.push(tier);
   });
 });
+// V2.6: 10.000 nhiệm vụ, trong đó 7.500 thực tế và 2.500 giải trí.
+// Giữ nguyên ID 0..83 để dữ liệu tiến trình V2.5 không bị lệch.
+const missionKinds = missions.map((_, i) => (i >= 18 && i <= 43) ? 'fun' : 'useful');
+const usefulTargets = [
+ ['góc bàn làm việc','ngăn kéo','kệ sách','túi xách','khu vực cạnh giường','bàn ăn','kệ giày','hộp đồ dùng','góc học tập','thư mục tài liệu'],
+ ['danh sách việc cần làm','lịch tuần','một việc đang trì hoãn','một email chưa trả lời','ghi chú dang dở','một mục tiêu nhỏ','một tài liệu cần đọc','danh sách mua sắm','một ý tưởng mới','một bản nháp'],
+ ['một trang sách','một khái niệm chưa hiểu','một từ mới','một bài học cũ','một đoạn ghi chú','một kỹ năng nhỏ','một chủ đề tò mò','một bài viết hữu ích','một phép tính cần kiểm tra','một câu hỏi muốn tìm hiểu'],
+ ['một bức ảnh','một đoạn văn','một ý tưởng truyện','một bức phác thảo','một tiêu đề','một danh sách ý tưởng','một tấm thiệp','một câu chuyện ngắn','một lời giới thiệu','một đoạn nhật ký'],
+ ['danh bạ liên lạc','một tin nhắn còn dang dở','một lời cảm ơn','một cuộc hẹn','một lời hỏi thăm','một lời khen chân thành','một kế hoạch gặp bạn','một lời xin lỗi phù hợp','một câu hỏi tử tế','một lời động viên'],
+ ['thư mục tải xuống','màn hình máy tính','danh sách tab','hộp thư đến','thư mục ảnh','tệp trùng lặp','tên tệp khó hiểu','danh sách dấu trang','một ứng dụng ít dùng','một ghi chú số'],
+ ['bình nước','góc nghỉ ngơi','tư thế ngồi','bữa ăn tiếp theo','lịch nghỉ ngắn','không gian quanh cửa sổ','bàn uống nước','một chậu cây','đôi giày đi bộ','thói quen trước khi ngủ'],
+ ['một món đồ để sai chỗ','một hộp đựng','một chiếc áo','một đôi tất','một chiếc cốc','một cuốn sổ','một dây sạc','một chiếc khăn','một chiếc túi','một vật dụng nhỏ'],
+ ['một khoản chi nhỏ','danh sách mua sắm','một hóa đơn cũ','một mục tiêu tiết kiệm','một món đồ định mua','một đăng ký dịch vụ','một khoản chi tuần này','một kế hoạch chi tiêu','một món đồ có sẵn','một khoản dự phòng'],
+ ['một góc nhà','một chiếc bàn','một kệ nhỏ','một ngăn tủ','một chiếc ghế','một lối đi','một bề mặt cần lau','một hộp giấy','một khu vực chung','một góc để đồ'],
+ ['một việc cho ngày mai','một mục tiêu tuần','một thói quen muốn xây','một quyết định nhỏ','một danh sách ưu tiên','một lịch hẹn','một kế hoạch học','một việc gia đình','một ý tưởng cá nhân','một việc còn thiếu bước đầu'],
+ ['một bản nhạc yêu thích','một cảnh ngoài cửa sổ','một vật có màu thú vị','một điều mới quan sát','một kỷ niệm vui','một góc phố quen','một câu chuyện thú vị','một chi tiết trong phòng','một sở thích cũ','một điều khiến bạn tò mò']
+];
+const usefulActions = [
+ ['Khởi động', 'Quan sát {target}, chọn một thay đổi nhỏ có ích và thực hiện ngay.'],
+ ['Kiểm kê', 'Kiểm tra {target}, ghi ra hai điều đang ổn và một điều cần cải thiện; xử lý điều đó nếu có thể.'],
+ ['Giải vây', 'Chọn một phần cụ thể liên quan đến {target}, hoàn thành phần ấy thay vì cố xử lý tất cả.'],
+ ['Sắp trận', 'Với {target}, viết ba bước thực hiện theo thứ tự và làm xong bước đầu tiên.'],
+ ['Tối ưu', 'Xem lại {target}, bỏ một thao tác hoặc vật không cần thiết nếu phù hợp và ghi kết quả.'],
+ ['Truy tìm', 'Tìm một chi tiết bạn thường bỏ qua ở {target}, kiểm tra và nêu một phát hiện thực tế.'],
+ ['Chốt hạ', 'Chọn một đầu việc liên quan đến {target} và đưa nó về trạng thái hoàn thành rõ ràng.'],
+ ['Hồi phục', 'Dành một khoảng tập trung cho {target}, không đa nhiệm; cuối phiên ghi lại tiến triển.'],
+ ['Thuần hóa', 'Biến {target} thành thứ dễ sử dụng hơn bằng một thay đổi cụ thể, rồi mô tả thay đổi.']
+];
+const usefulFlavors = [
+ 'Cán bộ bảo đây là nhiệm vụ nhỏ, nhưng hồ sơ hành chính đã dày ba phân.',
+ 'Trưởng lão nghiêm túc gật đầu, dù vừa cầm ngược bản đồ.',
+ 'Hệ thống đã chuẩn bị pháo giấy; xin đừng để pháo giấy thất nghiệp.',
+ 'Con yêu thú mang tên Trì Hoãn đang giả vờ không nhìn thấy ký chủ.',
+ 'Ban hậu cần cam kết cổ vũ từ xa, vì đang bận pha trà.',
+ 'Một bước nhỏ của ký chủ, một biên bản rất dài của tông môn.',
+ 'Linh thạch không tự mọc, nhưng tiến độ thì có thể.',
+ 'Hệ thống không đòi phép màu, chỉ xin một kết quả nhìn thấy được.',
+ 'Hội đồng trưởng lão đang đặt cược một chiếc bánh vào quyết tâm này.'
+];
+const usefulTierMinutes = [0, 0, 3, 5, 8, 12];
+const usefulTierXp = [10, 20, 35, 50, 75, 110];
+const funObjects = ['chiếc cốc','cây bút','chiếc gối','chiếc dép','cuốn sổ','cái thìa','chiếc ghế','hộp giấy','bình nước','chiếc khăn'];
+const funRoles = ['chưởng môn','đại tướng','thái sử','quân sư','sứ giả','thần thú','thủ thư','đại pháp sư','quan thanh tra','hộ pháp'];
+const funPlots = [
+ ['Sắc phong', 'Đặt cho {object} danh hiệu {role}, đọc một câu sắc phong và ghi lại danh hiệu.'],
+ ['Họp khẩn', 'Tưởng tượng {object} giữ chức {role}, viết hai câu về cuộc họp khẩn cấp vô cùng vô lý của nó.'],
+ ['Thông cáo', 'Viết một thông cáo hai câu cho {object} vừa được bổ nhiệm làm {role}.'],
+ ['Báo cáo mật', 'Nghĩ ra một vụ án vui không có nạn nhân với {object} làm {role}; viết hai câu kết luận.'],
+ ['Phỏng vấn', 'Đặt hai câu hỏi vui cho {object} trong vai {role}, rồi tự trả lời bằng hai câu.'],
+ ['Khen thưởng', 'Viết một lời khen hài hước ít nhất hai câu cho {object} đang làm {role}.'],
+ ['Quảng cáo', 'Viết hai câu quảng cáo hài hước cho {object} với chức danh {role}; không cần đăng lên mạng.'],
+ ['Tuyển dụng', 'Soạn hai câu mô tả công việc tưởng tượng của {object} khi làm {role}.'],
+ ['Truyền thuyết', 'Sáng tác một truyền thuyết ba câu về {object} từng là {role} của tông môn.'],
+ ['Lệnh truy nã', 'Viết một lệnh truy nã vui hai câu dành cho {object} giả làm {role}; tuyệt đối không đổ tội cho người thật.'],
+ ['Ngoại giao', 'Viết hai câu thư ngoại giao tưởng tượng của {object} trong vai {role}.'],
+ ['Biên bản', 'Ghi biên bản hai câu về việc {object} đòi thăng chức lên {role}.'],
+ ['Tiên tri', 'Sáng tác hai câu tiên tri vô hại về tương lai của {object} khi làm {role}.'],
+ ['Tuyên thệ', 'Viết một lời tuyên thệ hai câu cho {object} nhậm chức {role}.'],
+ ['Phán quyết', 'Đưa ra một phán quyết hài hước hai câu về năng lực {role} của {object}.'],
+ ['Lễ đăng quang', 'Tưởng tượng lễ đăng quang của {object} làm {role}; mô tả hai chi tiết buồn cười.'],
+ ['Hồ sơ nhân sự', 'Viết hai dòng hồ sơ nhân sự tưởng tượng của {object} ứng tuyển {role}.'],
+ ['Kịch bản', 'Viết đoạn hội thoại hai lượt giữa cán bộ và {object} trong vai {role}.'],
+ ['Bản tin', 'Đặt tiêu đề và viết hai câu bản tin về {object} trở thành {role}.'],
+ ['Tự truyện', 'Viết hai câu tự truyện dưới góc nhìn của {object} đang làm {role}.'],
+ ['Tố cáo giả', 'Viết một đơn khiếu nại hài hước hai câu của {object} vì chức {role} quá nhiều việc.'],
+ ['Đại hội', 'Đặt tên đại hội và viết hai câu khai mạc do {object} chủ trì với vai {role}.'],
+ ['Bí kíp', 'Viết hai điều trong bí kíp tưởng tượng dành cho {object} học làm {role}.'],
+ ['Thi tuyển', 'Đặt một câu hỏi thi và một đáp án buồn cười để {object} được phong {role}.'],
+ ['Kết nhiệm kỳ', 'Viết hai câu tổng kết nhiệm kỳ của {object} sau khi làm {role}.']
+];
+const newRules = [];
+function addGenerated(title, description, tier, kind, minSeconds=0) {
+  missions.push([title, description, kind === 'fun' ? 10 + tier * 10 : usefulTierXp[tier]]);
+  levels.push(tier);
+  missionKinds.push(kind);
+  newRules.push({type: minSeconds ? 'timer_report' : 'report', minSeconds, minWords: 6,
+    hint: kind === 'fun' ? 'Ghi rõ sản phẩm sáng tạo theo yêu cầu (ít nhất 6 từ).' : 'Báo cáo hành động và kết quả cụ thể (ít nhất 6 từ).'});
+}
+// 84 nhiệm vụ cũ: 58 hữu ích, 26 giải trí. Thêm 7.442 hữu ích + 2.474 giải trí.
+let usefulAdded = 0;
+outerUseful: for (let domain=0;domain<12;domain++) for (let target=0;target<10;target++)
+ for (let action=0;action<9;action++) for (let flavor=0;flavor<9;flavor++) {
+  if (usefulAdded >= 7442) break outerUseful;
+  const tier=(domain*7+target*3+action+flavor)%6;
+  const minutes=usefulTierMinutes[tier];
+  const object=usefulTargets[domain][target];
+  const [verb, template]=usefulActions[action];
+  const task=template.replace('{target}',object);
+  const timing=minutes ? ' Thực hiện trong '+minutes+' phút; được giao nộp sau trên 80% thời lượng.' : '';
+  const extra=['Chỉ chọn một phần nhỏ để tránh quá tải.','Đừng tiết lộ dữ liệu riêng tư trong báo cáo.','Ưu tiên cách an toàn và phù hợp với hoàn cảnh.'][flavor%3];
+  addGenerated('Bí cảnh '+(domain+1)+' · '+verb+' · '+object+' · '+(flavor+1), task+timing+' '+extra+' '+usefulFlavors[flavor],tier,'useful',minutes*60);
+  usefulAdded++;
+ }
+let funAdded=0;
+outerFun: for (let plot=0;plot<25;plot++) for (let object=0;object<10;object++) for (let role=0;role<10;role++) {
+ if(funAdded>=2474) break outerFun;
+ const tier=(plot+object*2+role)%6;
+ const [label,template]=funPlots[plot];
+ const task=template.replaceAll('{object}',funObjects[object]).replaceAll('{role}',funRoles[role]);
+ addGenerated(label+' · '+funObjects[object]+' · '+funRoles[role],task+' Cán bộ cam đoan không ai bị thương trong cuộc khủng hoảng hành chính tưởng tượng này.',tier,'fun');
+ funAdded++;
+}
+if(missions.length!==10000 || missionKinds.filter(x=>x==='useful').length!==7500 || missionKinds.filter(x=>x==='fun').length!==2500) throw Error('Sai quy mô ngân hàng V2.6');
+
 // V2: quy tắc xác minh gắn với ID nhiệm vụ, không suy đoán bằng từ khóa.
 // Timer tính thời gian trang đang hiển thị; yêu cầu trên 80% thời lượng. Đây là kiểm tra UX, không phải bằng chứng tuyệt đối.
 const verifyRules = missions.map((_, index) => ({ type: 'report', minSeconds: 0, minWords: 4, hint: 'Nêu một kết quả cụ thể, không cần tiết lộ thông tin riêng tư.' }));
@@ -248,7 +352,10 @@ for (let i=0; i<60; i++) {
   if (pack===0 || pack===1) rule(index, {type:'report', minWords:4, hint:'Nêu tên đã đặt hoặc vật chứng tìm thấy.'});
   else rule(index, {type:'timer_report', minSeconds:[0,0,180,300,480,720][pack], hint:'Nêu kết quả thực tế sau khi hoàn thành phiên.'});
 }
+// Mỗi ngày 50 nhiệm vụ: 37 hữu ích + 13 giải trí, giữ nguyên phân bố độ khó.
+newRules.forEach((rule, offset) => Object.assign(verifyRules[84 + offset], rule));
 const quota = [8, 7, 5, 12, 10, 8];
+const funQuota = [2, 2, 2, 3, 2, 2];
 const roasts = [
   'Đơn xin bỏ qua đã được đọc rất kỹ. Hệ Thống Tông Môn mất đúng một giây để đóng dấu TỪ CHỐI.',
   'Nhiệm vụ vẫn đang đợi. Nó còn kiên nhẫn hơn cả Hệ Thống Tông Môn.',
@@ -264,14 +371,19 @@ function dailyQueue(date, existing) {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
     return seed / 4294967296;
   }
-  const queue = existing ?? quota.flatMap((count, tier) => {
-    const pool = levels.flatMap((level, index) => level === tier ? [index] : []);
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    return pool.slice(0, count);
-  });
+  const seen = new Set(state.seenMissionIds || []);
+  const draw = (tier, kind, count) => {
+    const pool = [];
+    for(let i=0;i<missions.length;i++) if(levels[i]===tier && missionKinds[i]===kind) pool.push(i);
+    for(let i=pool.length-1;i>0;i--) { const j=Math.floor(random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+    const unseen=pool.filter(i=>!seen.has(i));
+    const reused=pool.filter(i=>seen.has(i));
+    return unseen.concat(reused).slice(0,count);
+  };
+  const queue = existing ?? quota.flatMap((count,tier) => [
+    ...draw(tier,'useful',count-funQuota[tier]),
+    ...draw(tier,'fun',funQuota[tier])
+  ]);
   for (let i = queue.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
     [queue[i], queue[j]] = [queue[j], queue[i]];
@@ -541,6 +653,11 @@ function render(animateMission = false, greetingOnly = false) {
   if (!mission) {
     say('Tôi có 50 nhiệm vụ cho hôm nay. Cứ mở từng thông báo. Những nhiệm vụ đầu đã được dặn phải nhẹ tay.');
     return;
+  }
+  if (!Array.isArray(state.seenMissionIds)) state.seenMissionIds=[];
+  if (!state.seenMissionIds.includes(mission.index)) {
+    state.seenMissionIds.push(mission.index);
+    save();
   }
   const [title, task, originalXp] = missions[mission.index];
   const xp = mission.reward ?? originalXp;
