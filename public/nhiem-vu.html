@@ -99,6 +99,7 @@ button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:ma
 .achievement-card.secret:not(.unlocked) strong{filter:blur(3px)}.award-rare{color:#70c8ff}.award-epic{color:#caa0ff}.award-legendary{color:#ffd479}
 #award-notice{position:fixed;z-index:9999;right:1rem;bottom:1rem;max-width:min(380px,90vw);background:#173b32;border:2px solid #d5bc72;color:#fff4d2;border-radius:14px;padding:1rem;box-shadow:0 12px 45px #0009}#award-notice[hidden]{display:none}#award-notice button{margin-top:.5rem}
 #reward-history{max-height:230px;overflow:auto}#reward-history li{margin:.35rem 0}
+.daily-goal{border:1px solid #41665c;background:#132a2a;border-radius:14px;padding:1rem;margin:1rem 0}.daily-goal h2{font-size:1rem;margin:0 0 .6rem}.daily-goal select{width:auto;min-width:115px;margin-left:.4rem}.daily-goal progress{display:block;width:100%;height:12px;margin:.65rem 0;accent-color:#a5ffe0}.daily-goal p{margin:.3rem 0;color:#cce5db}.daily-goal .goal-success{color:#a5ffe0;font-weight:700}
 </style>
 <dialog id="contract" aria-labelledby="contract-title">
   <div class="aura" aria-hidden="true"><span></span><b>◈</b></div>
@@ -149,6 +150,12 @@ button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:ma
   <div class="report-actions"><button class="primary" id="submit-mission">Giao nộp nhiệm vụ</button><button id="skip" hidden>Khó quá cán bộ ơi!</button><small id="help-cooldown" class="help-cooldown" role="status" hidden></small></div>
 </div>
 </dialog>
+<section class="daily-goal" aria-label="Chỉ tiêu tu luyện cá nhân">
+<h2>🎯 Chỉ tiêu tu luyện hôm nay</h2>
+<label for="daily-goal-select">Mục tiêu của ký chủ</label><select id="daily-goal-select"><option value="5">5 nhiệm vụ/ngày</option><option value="10">10 nhiệm vụ/ngày</option><option value="20">20 nhiệm vụ/ngày</option></select>
+<progress id="daily-goal-progress" max="10" value="0" aria-label="Tiến độ mục tiêu"></progress>
+<p id="daily-goal-status" role="status"></p><small>Hệ Thống vẫn cung cấp tối đa 50 nhiệm vụ mỗi ngày. Mục tiêu chỉ để động viên, không phải nghĩa vụ; không hoàn thành không bị trừ kỷ luật.</small>
+</section>
 <section class="progress-hub" aria-label="Hành trình ký chủ">
 <details id="achievements-panel"><summary>🏅 Thành tựu và danh hiệu <span id="achievement-total"></span></summary><p><label for="title-select">Danh hiệu đang trang bị</label><select id="title-select"></select></p><div id="achievement-grid" class="achievement-grid"></div><details><summary>📜 Lịch sử mở khóa thành tựu</summary><ol id="reward-history"></ol></details></details>
 <details id="story-panel"><summary>📜 Thiên Mệnh Ký Chủ · Cốt truyện <span id="story-progress"></span></summary><div id="story-chapters"></div></details>
@@ -318,6 +325,50 @@ const funPlots = [
  ['Thi tuyển', 'Đặt một câu hỏi thi và một đáp án buồn cười để {object} được phong {role}.'],
  ['Kết nhiệm kỳ', 'Viết hai câu tổng kết nhiệm kỳ của {object} sau khi làm {role}.']
 ];
+// V3.0: nội dung có cấu trúc, gắn trực tiếp với hành động thực tế.
+const missionNarratives = new Map();
+const domainLore = [
+ ['Điện Trật Tự','Trận pháp hỗn độn xuất hiện trong khu vực sinh hoạt. Một món đồ lệch chỗ cũng có thể khiến cả đội hậu cần phải viết kiểm điểm.','dọn và sắp xếp'],
+ ['Các Tư Mệnh','Sổ công vụ của ký chủ có dấu hiệu bị yêu thú Trì Hoãn gặm mất vài trang. Hệ Thống cần một bằng chứng rằng công việc vẫn đang tiến lên.','lập kế hoạch và xử lý công việc'],
+ ['Tàng Kinh Các','Một trang tri thức đang phủ bụi trong Tàng Kinh Các. Cán bộ 007 đề nghị lĩnh ngộ một mảnh nhỏ thay vì ôm cả kho bí kíp.','học tập và ghi chú'],
+ ['Truyền Tin Điện','Phù truyền tin phát sáng nhưng thông điệp vẫn nằm trong hàng chờ. Hệ Thống muốn khôi phục một đường liên lạc nhỏ, không ép ký chủ giao tiếp ngoài ý muốn.','giao tiếp'],
+ ['Kho Lưu Trữ','Các linh phù dữ liệu xếp chồng thành một ngọn núi. Nếu không chỉnh lại, ngày mai tìm một tệp sẽ giống mò kim trong biển linh khí.','quản lý tài liệu'],
+ ['Dưỡng Sinh Đường','Chuông dưỡng sinh vừa vang. Hệ Thống nhắc rằng ký chủ không phải cỗ máy luyện đan và cũng cần được chăm sóc.','chăm sóc bản thân'],
+ ['Điện Sinh Hoạt','Một việc nhỏ trong sinh hoạt đang xin được giải quyết trước khi biến thành đại án của tông môn.','sinh hoạt'],
+ ['Kim Khố Đường','Sổ linh thạch có vài dòng cần xem lại. Không cần làm giàu trong một buổi; chỉ cần biết mình đang quản lý điều gì.','quản lý chi tiêu'],
+ ['Trận Địa Sạch Sẽ','Đội trinh sát phát hiện một góc cần chăm sóc. Yêu thú Bừa Bộn chưa mạnh, nhưng rất giỏi sinh sản.','vệ sinh và sắp xếp'],
+ ['Thiên Cơ Các','Bản đồ ngày mai còn để trống một ô. Hệ Thống muốn ký chủ đánh dấu bước tiếp theo trước khi thời gian chạy mất.','lập kế hoạch'],
+ ['Đài Quan Sát','Linh kính vừa chiếu một điều thú vị quanh ký chủ. Một quan sát nhỏ cũng có thể mở khóa góc nhìn mới.','khám phá'],
+ ['Linh Cảm Viện','Linh cảm vừa ghé qua, nhưng rất dễ bỏ đi nếu không được ghi lại. Cán bộ đã chuẩn bị giấy, còn bút thì ký chủ tự lo.','sáng tạo']
+];
+const officerByAction = [
+ 'Cán bộ 007: “Khởi động được đã là thắng một nửa. Nửa còn lại xin đừng để ta phải viết báo cáo giải trình.”',
+ 'Cán bộ 007: “Kiểm kê rõ ràng nhé. Ta từng ghi thiếu một chiếc thìa và bị điều tra ba ngày.”',
+ 'Cán bộ 007: “Đừng cố đánh cả đại quân. Một mục tiêu nhỏ cũng đủ để Hệ Thống đóng dấu công trạng.”',
+ 'Cán bộ 007: “Ba bước thôi. Lần trước có ký chủ viết 108 bước rồi hết giờ vì trang trí tiêu đề.”',
+ 'Cán bộ 007: “Tối ưu là làm gọn hơn, không phải giấu hết mọi thứ vào ngăn kéo.”',
+ 'Cán bộ 007: “Phát hiện một chi tiết thật còn quý hơn mười lời tiên tri viết vội.”',
+ 'Cán bộ 007: “Kết thúc một việc đi. Phòng lưu trữ không còn chỗ cho những chữ ‘để mai’.”',
+ 'Cán bộ 007: “Một phiên tập trung đáng giá hơn mười lần mở tab rồi quên mình định làm gì.”',
+ 'Cán bộ 007: “Sửa một chút để ngày mai đỡ khổ. Đây là tiên thuật hiếm hoi không cần linh thạch.”'
+];
+function narrativeFor(index){
+ const saved=missionNarratives.get(index);
+ if(saved)return saved;
+ const [title,description]=missions[index];
+ return {intro:'Hệ Thống phát hiện một thử thách đời thường phù hợp với ký chủ và đã phát hành sắc lệnh tu luyện.',context:'Đây là khảo nghiệm nhỏ trong hành trình nâng cấp bản thân. Không cần thần thông; hãy dùng cách an toàn, phù hợp hoàn cảnh.',action:description,condition:verifyRules[index]?.minSeconds ? 'Thực hiện hành động và chỉ nộp sau khi vượt 80% thời lượng yêu cầu; báo cáo kết quả cụ thể.' : 'Hoàn thành hành động được mô tả và tự xác nhận hoặc báo cáo kết quả trung thực.',officer:'Cán bộ 007: “Sắc lệnh đã phát. Ta giữ sổ công trạng, ký chủ giữ quyền quyết định cách thực hiện.”'};
+}
+function missionBriefing(index,number,xp){
+ const [title]=missions[index], n=narrativeFor(index), seconds=verifyRules[index].minSeconds||0;
+ return '◈ SẮC LỆNH HỆ THỐNG · '+number+'/50 · '+tiers[levels[index]]+(seconds?' · '+Math.ceil(seconds/60)+' phút':'')+'\n'
+  +'✦ '+title+'\n\n'
+  +'📜 GIỚI THIỆU\n'+n.intro+'\n\n'
+  +'🌌 BỐI CẢNH\n'+n.context+'\n\n'
+  +'⚔ NHIỆM VỤ CỦA KÝ CHỦ\n'+n.action+'\n\n'
+  +'✓ ĐIỀU KIỆN HOÀN THÀNH\n'+n.condition+'\n\n'
+  +'💬 '+n.officer+'\n\n'
+  +'🎁 PHẦN THƯỞNG: +'+xp+' XP';
+}
 const newRules = [];
 function addGenerated(title, description, tier, kind, minSeconds=0) {
   missions.push([title, description, kind === 'fun' ? 10 + tier * 10 : usefulTierXp[tier]]);
@@ -338,7 +389,18 @@ outerUseful: for (let domain=0;domain<12;domain++) for (let target=0;target<10;t
   const task=template.replace('{target}',object);
   const timing=minutes ? ' Thực hiện trong '+minutes+' phút; được giao nộp sau trên 80% thời lượng.' : '';
   const extra=['Chỉ chọn một phần nhỏ để tránh quá tải.','Đừng tiết lộ dữ liệu riêng tư trong báo cáo.','Ưu tiên cách an toàn và phù hợp với hoàn cảnh.'][flavor%3];
-  addGenerated('Bí cảnh '+(domain+1)+' · '+verb+' · '+object+' · '+(flavor+1), task+timing+' '+extra+' '+usefulFlavors[flavor],tier,'useful',minutes*60);
+  const zone=domainLore[domain];
+  const stage=['Sơ khảo','Thám sát','Lập trận','Phá giải','Tái thiết','Lĩnh ngộ','Tịnh hóa','Củng cố','Kết ấn'][flavor];
+  const title=zone[0]+' · '+stage+' '+object+' · '+verb;
+  const id=missions.length;
+  addGenerated(title,task+timing+' '+extra,tier,'useful',minutes*60);
+  missionNarratives.set(id,{
+    intro:'[Đinh!] '+zone[0]+' vừa gửi một sắc lệnh '+zone[2]+'. Hệ Thống chọn ký chủ để giải quyết một việc nhỏ có thể nhìn thấy kết quả.',
+    context:zone[1]+' Nhiệm vụ lần này nhắm vào '+object+'. '+usefulFlavors[flavor],
+    action:task+' Chỉ thực hiện nếu phù hợp với hoàn cảnh; không cần đụng đến dữ liệu hay đồ vật của người khác.',
+    condition:(minutes?'Dành '+minutes+' phút cho nhiệm vụ; chỉ nộp sau khi đã vượt '+(minutes*.8).toFixed(1).replace('.0','')+' phút (trên 80% thời lượng). ':'')+'Báo cáo rõ đã làm gì với '+object+' và kết quả cụ thể (ít nhất 6 từ).',
+    officer:officerByAction[action]
+  });
   usefulAdded++;
  }
 let funAdded=0;
@@ -347,7 +409,15 @@ outerFun: for (let plot=0;plot<25;plot++) for (let object=0;object<10;object++) 
  const tier=(plot+object*2+role)%6;
  const [label,template]=funPlots[plot];
  const task=template.replaceAll('{object}',funObjects[object]).replaceAll('{role}',funRoles[role]);
- addGenerated(label+' · '+funObjects[object]+' · '+funRoles[role],task+' Cán bộ cam đoan không ai bị thương trong cuộc khủng hoảng hành chính tưởng tượng này.',tier,'fun');
+ const id=missions.length;
+ addGenerated(label+' · '+funObjects[object]+' · '+funRoles[role],task,tier,'fun');
+ missionNarratives.set(id,{
+  intro:'[Đinh!] Ban Giải Trí Tông Môn vừa ban sắc lệnh sáng tạo. Hệ Thống yêu cầu ký chủ giải cứu bầu không khí nghiêm túc quá mức.',
+  context:'Trong buổi họp tưởng tượng, '+funObjects[object]+' bất ngờ được đề cử làm '+funRoles[role]+'. Hội đồng yêu cầu một '+label.toLowerCase()+' trước khi đóng dấu bổ nhiệm. Đây hoàn toàn là trò chơi tưởng tượng, không cần đăng tải hay làm phiền ai.',
+  action:task,
+  condition:'Tạo đủ số câu, dòng hoặc chi tiết như sắc lệnh yêu cầu; báo cáo nội dung đã sáng tác (ít nhất 6 từ).',
+  officer:'Cán bộ 007: “'+funObjects[object].charAt(0).toUpperCase()+funObjects[object].slice(1)+' làm '+funRoles[role]+'? Ta xin phép giữ lại biên bản này để kể cho hậu thế.”'
+ });
  funAdded++;
 }
 if(missions.length!==10000 || missionKinds.filter(x=>x==='useful').length!==7500 || missionKinds.filter(x=>x==='fun').length!==2500) throw Error('Sai quy mô ngân hàng V2.6');
@@ -435,6 +505,22 @@ if (!state.deviceSeed) {
 }
 const el = id => document.getElementById(id);
 const HELP_COOLDOWN_MS = 30000;
+const DAILY_GOALS = [5,10,20];
+const CARRYOVER_MS = 24 * 60 * 60 * 1000;
+function dailyGoal() { return DAILY_GOALS.includes(Number(state.dailyGoal)) ? Number(state.dailyGoal) : 10; }
+function renderDailyGoal(run) {
+  const goal=dailyGoal();
+  el('daily-goal-select').value=String(goal);
+  el('daily-goal-progress').max=goal;
+  el('daily-goal-progress').value=Math.min(goal,run.cleared);
+  const reached=run.cleared>=goal;
+  const status=el('daily-goal-status');
+  status.classList.toggle('goal-success',reached);
+  status.textContent=reached
+    ? '🎉 Đã đạt chỉ tiêu '+goal+' nhiệm vụ! Ký chủ có thể tiếp tục tu luyện hoặc nghỉ ngơi. Không có hình phạt.'
+    : 'Đã hoàn thành '+run.cleared+'/'+goal+' mục tiêu · còn '+Math.max(0,goal-run.cleared)+' nhiệm vụ để đạt chỉ tiêu.';
+}
+
 
 // V2.8: dữ liệu bổ sung độc lập, không thay đổi khóa lưu trữ và tiến trình V2.6.
 const CHAPTERS = [
@@ -605,18 +691,35 @@ function say(text, from = 'system') {
 function currentRun() {
   const date = day();
   if (state.run?.day !== date) {
-    if (state.run) {
-      const previous = state.run;
+    const previous = state.run;
+    let carry = null;
+    if (previous) {
+      const pending = previous.queue.slice(previous.next);
+      const active = previous.mission?.phase === 'active';
+      if (active && pending[0] === previous.mission.index) pending.shift();
       state.review = {
-        day: previous.day, cleared: previous.cleared, skipped: previous.next - previous.cleared,
-        pending: previous.queue.slice(previous.next),
-        skippedIds: Object.values(previous.skippedIds ?? {})
+        day: previous.day, cleared: previous.cleared,
+        skipped: Math.max(0, previous.next - previous.cleared),
+        pending, skippedIds: Object.values(previous.skippedIds ?? {}),
+        carried: active ? previous.mission.index : null,
+        goal: DAILY_GOALS.includes(Number(previous.goal)) ? Number(previous.goal) : dailyGoal()
       };
       if (previous.mission?.phase === 'skipped' && !state.review.skippedIds.includes(previous.mission.index)) {
         state.review.skippedIds.push(previous.mission.index);
       }
+      if (active) {
+        const deadline=Number(previous.mission.carryUntil) || (Date.now()+CARRYOVER_MS);
+        if (Date.now()<deadline) {
+          carry={...previous.mission,number:1,carryUntil:deadline};
+        } else {
+          state.review.expired = previous.mission.index;
+          state.review.carried = null;
+        }
+      }
     }
-    state.run = { day: date, queue: dailyQueue(date), next: 0, cleared: 0, mission: null, mixed: true };
+    const queue=dailyQueue(date);
+    if(carry) { const index=queue.indexOf(carry.index); if(index>=0)queue.splice(index,1); queue.unshift(carry.index); if(queue.length>50)queue.length=50; }
+    state.run = { day: date, queue, next: 0, cleared: 0, mission: carry, mixed: true, goal:dailyGoal() };
     save();
   }
   const run = state.run;
@@ -625,6 +728,13 @@ function currentRun() {
     const remaining = run.queue.slice(first);
     run.queue.splice(first, remaining.length, ...dailyQueue(date, remaining));
     run.mixed = true;
+    save();
+  }
+  // Carry-over hết hạn sau 24 giờ: thu hồi tự động, không coi là chủ động bỏ nhiệm vụ.
+  if(run.mission?.phase==='active' && run.mission.carryUntil && Date.now()>=run.mission.carryUntil){
+    run.mission={...run.mission,phase:'expired'};
+    run.next++;
+    if(state.review?.carried===run.mission.index){state.review.expired=run.mission.index;state.review.carried=null;}
     save();
   }
   return run;
@@ -637,20 +747,17 @@ function renderReview(run) {
   } : state.review;
   el('day-review').hidden = !review;
   if (!review) return;
-  el('review-title').textContent = 'Tổng kết ' + review.day + ' · ' + review.cleared
-    + ' hoàn thành · ' + review.skipped + ' bỏ qua · ' + review.pending.length + ' chưa xong';
+  el('review-title').textContent = 'Tổng kết ' + review.day + ' · ' + review.cleared + '/' + (review.goal||dailyGoal()) + ' chỉ tiêu · ' + review.skipped + ' chủ động bỏ · ' + review.pending.length + ' chưa nhận';
   const list = el('review-list');
   list.replaceChildren();
-  for (const [status, ids] of [['Bỏ qua', review.skippedIds], ['Chưa xong', review.pending]]) {
+  for (const [status, ids] of [['Bỏ qua', review.skippedIds], ['Chưa nhận', review.pending]]) {
     for (const id of ids) {
       const item = document.createElement('li');
       item.textContent = status + ' — ' + missions[id][0];
       list.append(item);
     }
   }
-  el('review-note').textContent = review.skipped > review.skippedIds.length
-    ? 'Một số lượt bỏ qua trước bản cập nhật chỉ có số đếm.'
-    : list.children.length === 0 ? 'Tất cả nhiệm vụ đã hoàn thành.' : '';
+  el('review-note').textContent = (review.carried != null ? '⏳ Nhiệm vụ đang làm được chuyển sang hôm nay, có tối đa 24 giờ để hoàn thành. ' : '') + (review.expired != null ? '⌛ Nhiệm vụ quá hạn đã thu hồi không trừ kỷ luật. ' : '') + (review.skipped > review.skippedIds.length ? 'Một số lượt bỏ qua trước bản cập nhật chỉ có số đếm.' : 'Nhiệm vụ chưa nhận không bị phạt.');
 }
 
 
@@ -745,6 +852,7 @@ function render(animateMission = false, greetingOnly = false) {
 
   const run = currentRun();
   renderProgressHub();
+  renderDailyGoal(run);
   const remaining=banRemaining();
   const level = levelFor(state.xp);
   el('score').textContent = 'Cấp ' + level + ' / ' + MAX_LEVEL + ' · ' + xpLabel(state.xp) + ' XP';
@@ -759,9 +867,9 @@ function render(animateMission = false, greetingOnly = false) {
     xpLabel(earned) + ' / ' + xpLabel(required) + ' XP để lên cấp ' + (level + 1);
   el('discipline').textContent = 'Điểm kỷ luật: '+state.discipline+' · Số lần khai trừ: '+state.banCount+(remaining?' · Bị khai trừ còn '+Math.ceil(remaining/1000)+' giây':'');
   el('discipline').classList.toggle('locked',remaining>0);
-  el('stats').textContent = 'Hôm nay · Đã hoàn thành: ' + run.cleared
-    + ' · Không hoàn thành (đã bỏ qua): ' + (run.next - run.cleared)
-    + ' · Chưa hoàn thành: ' + (run.queue.length - run.next);
+  el('stats').textContent = 'Hôm nay · Hoàn thành: ' + run.cleared
+    + ' · Đã xử lý: ' + run.next + '/50'
+    + ' · Chưa nhận: ' + Math.max(0,run.queue.length-run.next-(run.mission?.phase==='active'?1:0));
   renderReview(run);
   el('chat').replaceChildren();
   const mission = run.mission;
@@ -773,7 +881,7 @@ function render(animateMission = false, greetingOnly = false) {
   el('verification').hidden = !active || !reportOpen;
   if (active && reportOpen) {
     renderVerification(mission);
-    el('report-mission-summary').textContent = 'Nhiệm vụ '+mission.number+'/50 · '+missions[mission.index][0]+'\n'+missions[mission.index][1];
+    el('report-mission-summary').textContent = missionBriefing(mission.index,mission.number,mission.reward??missions[mission.index][2]);
   }
   el('skip').hidden = !active;
   const attempts = mission?.skipAttempts ?? 0;
@@ -796,9 +904,10 @@ function render(animateMission = false, greetingOnly = false) {
     return;
   }
   if (!mission) {
-    say('Tôi có 50 nhiệm vụ cho hôm nay. Cứ mở từng thông báo. Những nhiệm vụ đầu đã được dặn phải nhẹ tay.');
+    say('Hệ Thống chuẩn bị 50 nhiệm vụ để lựa chọn. Chỉ tiêu hôm nay: '+dailyGoal()+' nhiệm vụ. Không đạt chỉ tiêu cũng không bị phạt.');
     return;
   }
+  if (mission.carryUntil) say('⏳ Nhiệm vụ được bảo lưu từ hôm trước, còn '+Math.max(0,Math.ceil((mission.carryUntil-Date.now())/60000))+' phút. Hết hạn sẽ thu hồi, không trừ kỷ luật.');
   if (!Array.isArray(state.seenMissionIds)) state.seenMissionIds=[];
   if (!state.seenMissionIds.includes(mission.index)) {
     state.seenMissionIds.push(mission.index);
@@ -807,7 +916,7 @@ function render(animateMission = false, greetingOnly = false) {
   const [title, task, originalXp] = missions[mission.index];
   const xp = mission.reward ?? originalXp;
   const tier = levels[mission.index];
-  const briefing = 'Nhiệm vụ ' + mission.number + '/50 [' + tiers[tier] + ']\n' + title + '\n' + task + '\nThưởng +' + xp + ' XP';
+  const briefing = missionBriefing(mission.index,mission.number,xp);
   if (active && animateMission) {
     say('');
     const bubble = el('chat').lastElementChild;
@@ -839,6 +948,7 @@ function render(animateMission = false, greetingOnly = false) {
   if (finished) say('Hết lượt hôm nay. Hoàn thành ' + run.cleared + '/50 nhiệm vụ. Hệ Thống Tông Môn xin phép đi nghỉ trước ký chủ.');
 }
 
+el('daily-goal-select').addEventListener('change',event=>{const value=Number(event.target.value);if(!DAILY_GOALS.includes(value))return;state.dailyGoal=value;const run=currentRun();run.goal=value;save();render();});
 el('close-report').onclick = () => el('report-dialog').close();
 el('report-dialog').addEventListener('close', () => { reportOpen = false; });
 el('action').onclick = () => {
