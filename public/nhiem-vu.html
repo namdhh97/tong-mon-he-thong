@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="vi">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hệ Thống Tông Môn • Nhiệm vụ đời thường</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#16171b;color:#f6f2e9;font:16px system-ui,sans-serif}
+main{width:min(720px,100% - 32px);margin:7vh auto}header{display:flex;justify-content:space-between;gap:1rem;align-items:center;color:#d4d1cb;font-size:.85rem}
+.signal{color:#eaff78;letter-spacing:.15em;font-weight:800}h1{font-size:clamp(2.7rem,9vw,5rem);line-height:.97;margin:1.6rem 0 .75rem;letter-spacing:-.065em}p{line-height:1.6;color:#ccc9c2}.panel{background:#222329;border:1px solid #404148;border-radius:20px;padding:clamp(1.2rem,5vw,2.2rem);margin:2rem 0 1rem}
+.tag{font-size:.75rem;color:#eaff78;font-weight:800;letter-spacing:.13em}h2{font-size:clamp(1.65rem,5vw,2.4rem);margin:.6rem 0}.actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1.5rem}
+button{font:inherit;font-weight:750;border-radius:10px;border:1px solid #565760;padding:.75rem 1rem;background:#303139;color:inherit;cursor:pointer}button.primary{color:#181a13;background:#eaff78;border-color:#eaff78}button:focus-visible{outline:3px solid #a9b6ff;outline-offset:4px}footer{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}a{color:#d7dbff}#notice{min-height:1.6em}
+select{font:inherit;color:inherit;background:#303139;border:1px solid #565760;border-radius:10px;padding:.65rem;margin:.25rem}.daily-note{color:#eaff78}#chat{display:grid;gap:.7rem}.bubble{width:fit-content;max-width:88%;padding:.7rem 1rem;border-radius:16px 16px 16px 4px;background:#34363e;color:#f6f2e9;white-space:pre-line;overflow-wrap:anywhere}
+.bubble.me{justify-self:end;background:#eaff78;color:#202317;border-radius:16px 16px 4px 16px}
+.bubble strong{display:block;font-size:.73rem;margin-bottom:.25rem;letter-spacing:.08em}.bubble.system strong{color:#eaff78}
+button:disabled{opacity:.55;cursor:default}
+.rank{display:grid;gap:.4rem;margin-top:1rem}.rank progress{width:100%;height:12px;accent-color:#eaff78}.rank small{color:#d4d1cb}#contract{width:min(480px,calc(100% - 28px));max-height:calc(100dvh - 28px);overflow:auto;border:1px solid #a6baff68;border-radius:24px;padding:clamp(1.25rem,5vw,2rem);background:radial-gradient(ellipse at top,#343366,#161824 72%);color:#f6f2e9;box-shadow:0 0 85px #7084ff44;text-align:center}
+#contract::backdrop{background:#080a16d9;backdrop-filter:blur(8px)}
+.aura{width:94px;height:94px;margin:.1rem auto 1.25rem;position:relative;display:grid;place-items:center;color:#eaff78;font-size:2.4rem;filter:drop-shadow(0 0 16px #bbcfff)}
+.aura::before,.aura span{content:"";position:absolute;inset:0;border:1px dashed #aabaff;border-radius:50%;animation:orbit 12s linear infinite}
+.aura span{inset:10px;border-style:solid;border-color:#eaff7890 transparent;animation:orbit 8s linear infinite reverse}
+.aura b{animation:glimmer 3s ease-in-out infinite alternate}
+.contract-copy{animation:materialize .8s ease-out both}
+#contract-form[hidden]{display:none}#contract-form{display:grid;gap:.65rem;margin-top:1.25rem;text-align:left}
+#host-name{font:inherit;color:inherit;background:#10121e;border:1px solid #777e9f;border-radius:10px;padding:.8rem;width:100%}
+@keyframes orbit{to{transform:rotate(360deg)}}
+@keyframes glimmer{from{opacity:.65;transform:scale(.9)}to{opacity:1;transform:scale(1.07)}}
+@keyframes materialize{from{opacity:0;transform:translateY(12px);filter:blur(7px)}to{opacity:1;transform:none;filter:none}}
+@media(prefers-reduced-motion:reduce){.aura::before,.aura span,.aura b,.contract-copy{animation:none}}
+#contract.signed .contract-copy{animation:seal-reveal .75s ease-out both}
+@keyframes seal-reveal{from{opacity:0;transform:scale(.94);filter:blur(9px)}to{opacity:1;transform:none;filter:none}}
+@media(prefers-reduced-motion:reduce){#contract.signed .contract-copy{animation:none}}
+#day-review{background:#222329;border:1px solid #404148;border-radius:12px;padding:1rem;margin:1rem 0}#day-review summary{cursor:pointer;font-weight:750}#review-list li{margin:.45rem 0}#report-options:not([hidden]){display:flex;flex-wrap:wrap;gap:.6rem}:root{color-scheme:dark}
+body{background:radial-gradient(ellipse at 50% 0,#192b3b 0,transparent 36rem),#090d16;color:#e8f3f5}
+main{margin-block:4vh}
+.signal{color:#a5ffe0}
+.terminal-intro{display:flex;align-items:center;gap:clamp(1rem,4vw,2.5rem);margin:2.4rem 0 1rem}
+.terminal-intro small,.terminal-status small{color:#94aebf;letter-spacing:.15em;font:600 .7rem ui-monospace,monospace}
+.terminal-intro h1{margin:.3rem 0 .5rem;font-size:clamp(2.35rem,7vw,4.65rem);color:#e2fff7;text-shadow:0 0 35px #62ffd247}
+.terminal-intro p{margin:0;color:#a8bbc8}
+.sigil{display:grid;place-items:center;width:clamp(3.4rem,14vw,7rem);aspect-ratio:1;flex:none;border:1px solid #7bf2d774;border-radius:50%;font-size:clamp(1.6rem,6vw,3.3rem);color:#acffe7;background:#173039;box-shadow:0 0 35px #53f5d237,inset 0 0 22px #53f5d237;animation:glimmer 3s ease-in-out infinite alternate}
+.panel{position:relative;overflow:hidden;background:linear-gradient(160deg,#101d2a,#0d1420);border-color:#34576a;box-shadow:0 22px 65px #04070d80}
+.terminal-status{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem;padding-bottom:.85rem;border-bottom:1px solid #294657;color:#a5ffe0;font-size:.8rem}
+.bubble{background:#192b3b;border:1px solid #314b62}
+.bubble.system strong{color:#a5ffe0}
+.bubble.me,button.primary{background:#a5ffe0;border-color:#a5ffe0;color:#10251f}
+.rank progress{accent-color:#a5ffe0}
+#contract{background:radial-gradient(ellipse at top,#203f51,#101722 72%);border-color:#7bf2d774}
+@media(prefers-reduced-motion:reduce){.sigil{animation:none}}
+.receiving{background:linear-gradient(110deg,#192b3b 25%,#254455 50%,#192b3b 75%);background-size:250% 100%;animation:signal-scan 1.5s linear infinite}
+@keyframes signal-scan{to{background-position:100% 0}}
+@media(prefers-reduced-motion:reduce){.receiving{animation:none}}
+#contract-options[hidden]{display:none}.actions[hidden],#contract-intro[hidden]{display:none}#contract-intro{margin:1rem auto;text-align:left}#contract-form:not([hidden]){animation:materialize .45s ease-out both}@media(prefers-reduced-motion:reduce){#contract-form:not([hidden]){animation:none}}.panel{overflow:visible}
+#chat>.pinned-mission{position:sticky;top:.5rem;z-index:2;box-shadow:0 6px 14px #080d16b3}
+@media(max-height:440px){#chat>.pinned-mission{max-height:45vh;overflow:auto}}
+main{width:min(48rem,calc(100% - 2rem));overflow-wrap:anywhere}
+#chat{grid-template-columns:minmax(0,1fr)}
+.bubble{min-width:0}
+.terminal-intro>div:last-child{min-width:0}
+.actions>*{min-width:0;max-width:100%}
+button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:manipulation}
+#contract{max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);overscroll-behavior:contain}
+#host-name{min-width:0;font-size:16px}
+#review-list{padding-inline-start:1.4rem}
+@media(max-width:600px){
+  main{width:calc(100% - 1.25rem);margin-block:1rem}
+  header{flex-wrap:wrap;gap:.35rem .75rem}
+  .terminal-intro{gap:.7rem;margin:1.5rem 0 .75rem}
+  .terminal-intro h1{font-size:clamp(1.85rem,8.5vw,3rem)}
+  .terminal-intro p{font-size:.9rem}
+  .panel{margin-top:1rem;padding:.85rem;border-radius:14px}
+  .bubble{max-width:96%;padding:.65rem .8rem}
+  #chat>.pinned-mission{max-height:42vh;max-height:42dvh;overflow:auto}
+  .actions:not([hidden]),#report-options:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr)}
+  .actions button{width:100%}
+  #contract{padding:1rem;border-radius:16px}
+  #contract .aura{width:68px;height:68px;margin-bottom:.7rem}
+}
+@media(min-width:601px) and (max-width:900px){
+  main{width:min(48rem,calc(100% - 3rem))}
+}
+@media(max-height:480px) and (orientation:landscape){
+  #contract .aura{width:54px;height:54px;margin-bottom:.5rem}
+  #chat>.pinned-mission{max-height:44dvh;overflow:auto}
+}
+</style>
+<dialog id="contract" aria-labelledby="contract-title">
+  <div class="aura" aria-hidden="true"><span></span><b>◈</b></div>
+  <div class="contract-copy">
+    <div class="signal">TÍN HIỆU TỪ HỆ THỐNG TÔNG MÔN</div>
+    <h2 id="contract-title">Ký chủ đã được chọn.</h2>
+    <p>Xin chào, người may mắn. Giữa vô số ứng viên, Hệ Thống Tông Môn đã chọn bạn. Thuật toán tuyển chọn hiện được niêm phong vì lý do… bí ẩn.</p>
+    <div class="actions" id="contract-options">
+  <button type="button" class="primary" id="new-contract">Ký khế ước mới</button>
+  <button type="button" id="resume-contract">Đã có khế ước</button>
+</div>
+<p id="contract-message" role="status"></p>
+<div id="contract-intro" class="bubble system" hidden><div><strong id="prospective-system"></strong><span id="contract-line"></span></div></div><form id="contract-form" hidden>
+      <label for="host-name">Tên ký chủ</label>
+      <input id="host-name" name="host" placeholder="Nhập tên để ghi vào khế ước" required minlength="2" maxlength="30" autocomplete="nickname">
+      <button class="primary">Ký khế ước</button>
+    </form>
+  </div>
+</dialog>
+<main>
+<header><span class="signal">◈ HỆ THỐNG TÔNG MÔN</span><strong id="score"></strong></header><div class="rank"><strong id="rank-title"></strong><progress id="rank-bar" aria-label="Tiến trình lên cấp"></progress><small id="rank-detail"></small></div>
+<div class="terminal-intro">
+  <div class="sigil" aria-hidden="true">◈</div>
+  <div><small>KÊNH LINH THỨC / 01</small><h1>Hệ Thống<br>Tông Môn</h1>
+  <p>Khế ước là chìa khóa. Mỗi thông báo là một kiếp nạn nhỏ.</p></div>
+</div>
+<section class="panel" aria-label="Cuộc trò chuyện với Hệ Thống Tông Môn">
+<div class="terminal-status"><span>◈ Linh thức đã kết nối</span><small>KÊNH RIÊNG CỦA KÝ CHỦ</small></div><div id="chat" role="log" aria-live="polite"></div>
+<div class="actions"><small id="voice-status" role="status"></small>
+<button class="primary" id="action"></button>
+<div id="report-options" hidden>
+  <button id="submit-mission">Giao nộp nhiệm vụ</button>
+  <button id="skip" hidden>Khó quá cán bộ ơi!</button>
+</div>
+<button id="nudge" hidden>Hệ Thống Tông Môn ơi, cứu!</button>
+</div>
+</section>
+<details id="day-review" hidden><summary id="review-title"></summary><ul id="review-list"></ul><small id="review-note"></small></details><footer><small id="stats"></small></footer>
+</main>
+<script>
+const missions = [
+  ['Giải cứu cốc nước', 'Uống một cốc nước. Hệ thống phát hiện nhân vật chính đang vận hành bằng 80% cà phê và 20% niềm tin.', 15],
+  ['Dẹp loạn một góc bàn', 'Cất đúng ba món đồ về chỗ cũ. Các khu vực còn lại tạm thời được công nhận là vùng tự trị.', 25],
+  ['Trùm cuối mang tên Tab', 'Đóng một tab bạn đã mở từ tuần trước mà vẫn chưa đọc. Hệ thống sẽ tổ chức lễ tiễn biệt nội bộ.', 20],
+  ['Cứu NPC khỏi tin nhắn nháp', 'Trả lời một tin nhắn bạn đã định trả lời từ hôm qua. Nếu cần, bắt đầu bằng câu “giờ mình mới rep được”.', 25],
+  ['Mở khóa bản đồ gần nhà', 'Đứng cạnh cửa sổ và tìm một chi tiết bên ngoài mà bạn chưa từng để ý.', 15],
+  ['Bản cập nhật cột sống', 'Nếu thấy thoải mái, đứng lên và thả lỏng vai trong 30 giây. Ghế của bạn đã đồng ý cho nghỉ phép.', 20]
+];
+missions.push(
+  ['Khảo sát tủ lạnh', 'Tìm một món bạn quên mất đang có. Đội khảo cổ xin cảm ơn.', 20],
+  ['Một phút ngoài vùng phủ sóng', 'Đặt điện thoại úp xuống trong một phút. Thế giới được phép tự xoay sở.', 15],
+  ['Nộp đơn xin khen', 'Gửi một lời khen thật lòng cho ai đó. Hệ thống miễn phí phát hành lời tử tế.', 25],
+  ['Giải phóng kho ảnh', 'Xóa ba ảnh chụp màn hình bạn chẳng còn cần. Kho lưu trữ vừa thở phào.', 20],
+  ['Phong ấn chiếc tất lẻ', 'Ghép một đôi tất hoặc gom những chiếc lẻ vào cùng chỗ. Chúng cần một cuộc họp.', 15],
+  ['Tiếp tế cho nhân vật chính', 'Chuẩn bị một món ăn nhẹ nếu bạn đang đói. Bảng trạng thái rất mong tin tốt.', 15]
+);
+missions.push(
+  ['Đánh bại nút báo lại', 'Chọn một việc nhỏ đang trì hoãn và làm trong 15 phút.', 50],
+  ['Đột kích kho đồ', 'Dành 20 phút dọn một ngăn kéo. Tìm thấy cáp bí ẩn thì ghi công khai quật.', 75],
+  ['Chiến dịch một giờ yên tĩnh', 'Dành một giờ làm việc bạn đã chọn, tắt thông báo và nghỉ khi cần.', 110],
+  ['Hồ sơ tuyệt mật đã mở', 'Chia một việc bạn trì hoãn lâu nay thành ba bước, rồi hoàn thành bước đầu.', 140],
+  ['Thoát mê cung Tab', 'Dành 45 phút xử lý một việc bằng tối đa ba tab. Tab thứ tư sẽ đóng vai phản diện.', 100],
+  ['Kết thúc cuộc họp tưởng tượng', 'Soạn và gửi một lời hẹn cụ thể cho người bạn đã định gặp từ lâu.', 65]
+);
+const tiers = ['Cực dễ','Dễ','Trung bình','Khó','Cực khó','Bất khả thi'];
+const levels = [0,1,0,2,0,0,1,1,2,1,1,0,3,4,5,5,4,3];
+const MAX_LEVEL = 100;
+const ranks = ['Tân binh được triệu hồi','Người sống sót qua việc vặt','Đặc vụ chống trì hoãn','Kẻ khiến Hệ Thống Tông Môn dè chừng','Thợ săn nhiệm vụ','Chuyên gia xử lý việc trời ơi','Bậc thầy bẻ lái','Khắc tinh của trùm cuối','Huyền thoại việc đời thường','Ký chủ ngoài giáo trình'];
+const thresholds = [0];
+for (let level = 1; level < MAX_LEVEL; level++) {
+  thresholds.push(thresholds[level - 1] + Math.ceil(60 * 1.07 ** (level - 1)));
+}
+function levelFor(xp) {
+  let level = 1;
+  while (level < MAX_LEVEL && xp >= thresholds[level]) level++;
+  return level;
+}
+function rankFor(level) {
+  return level === MAX_LEVEL ? 'Ký chủ tối thượng' : ranks[Math.floor((level - 1) / 10)];
+}
+const xpLabel = xp => xp.toLocaleString('vi-VN');
+function dialogueBank(openings, lines, endings) {
+  return openings.flatMap(opening => lines.flatMap(line =>
+    endings.map(ending => opening + '. ' + line + ' ' + ending)));
+}
+const rescueLines = dialogueBank(
+["Ký chủ à","Báo cáo từ hậu phương","Hệ Thống vừa gieo quẻ","Tông môn xin nhắc nhẹ","Ban cứu viện đã đến","Tin từ phòng chiến thuật","Trùm cuối vừa gửi thư","Bảng nhiệm vụ xin phát biểu","Đội cổ vũ đã điểm danh","Một lời từ linh thức"],
+["Hãy thử làm bước nhỏ nhất.","Cho nhiệm vụ hai phút xem sao.","Chọn đúng một việc để bắt đầu.","Viết ra bước đầu tiên.","Thử cách đơn giản nhất trước.","Hít một hơi rồi đọc lại đề.","Chia việc này thành hai phần.","Bắt đầu bằng phần dễ thấy nhất.","Làm một bản nháp thật xấu.","Đặt mục tiêu tiến thêm một chút."],
+["Hệ Thống đã chuẩn bị pháo giấy.","Tông môn đang cá một gói mì vào ký chủ.","Trùm cuối vẫn đang mải chỉnh tóc.","Thanh tiến độ cũng muốn được vận động.","Biên bản chiến thắng còn chừa một dòng.","Cán bộ đang chờ dịp vỗ tay.","Ghế chủ tọa đã nhường chỗ cho ký chủ.","Bùa may mắn vừa hết hạn, đành dùng thực lực.","Đội cổ vũ đã đặt trà sữa.","Chiếc ghế bên cạnh tin ký chủ làm được."]
+);
+const officerLines = dialogueBank(
+["Cán bộ vừa nhận đơn","Hội đồng đã mở hồ sơ","Tông môn đã họp nhanh","Phòng hành chính xin báo","Linh thức đã nghe rõ","Ban kỷ luật ngẩng đầu","Máy đóng dấu đã khởi động","Ty xét duyệt lên tiếng","Trùm cuối xin dự thính","Sổ trực đã ghi nhận"],
+["Kỹ năng né việc của ký chủ rất có triển vọng.","Đơn xin rút lui trình bày khá có tâm.","Chiếc ghế của ký chủ vừa thở phào.","Tinh thần thương lượng đạt chuẩn tông môn.","Hồ sơ có dấu hiệu chăm chỉ nhầm chỗ.","Nhiệm vụ xin được bảo lưu quyền cà khịa.","Ký chủ vừa nộp thêm một luận văn về trì hoãn.","Ban thư ký đề nghị đóng khung lá đơn.","Một gói mì vừa được đặt cược vào quyết định này.","Tông môn ghi nhận nỗ lực thuyết phục."],
+["Biên bản xin giữ làm kỷ niệm.","Xin đừng gửi kèm thơ lục bát.","Cán bộ cất đơn cạnh ấm trà.","Đội hậu cần đang giả vờ bận.","Hồ sơ được đóng dấu hình con vịt.","Tông môn ghi bằng mực tím cho trang trọng.","Trùm cuối đọc xong đã đi pha trà.","Cái bút ký xin nghỉ phép.","Phòng họp vừa mất một tràng vỗ tay.","Thông tin đã được lưu vào mục Chuyện Khó Tin."]
+);
+const previousLine = new Map();
+function randomDialogue(bank) {
+  const last = previousLine.get(bank);
+  const draw = Math.floor(Math.random() * (bank.length - (last === undefined ? 0 : 1)));
+  const index = last !== undefined && draw >= last ? draw + 1 : draw;
+  previousLine.set(bank, index);
+  return bank[index];
+}
+
+const absurd = [
+  ['Họp báo với chiếc gối', 'Nói một câu cảm ơn chiếc gối vì đã bảo vệ bí mật của bạn suốt đêm.', 15, 0],
+  ['Đặt tên cho vật thể vô danh', 'Chọn một món đồ gần bạn và phong cho nó một cái tên quý tộc dài ít nhất bốn chữ.', 25, 1],
+  ['Tuyển trợ lý cho bàn làm việc', 'Chọn ba món đồ trên bàn, đặt chức danh cho từng món rồi xếp chúng thành một ban điều hành.', 40, 2],
+  ['Lập bảo tàng đồ thất lạc', 'Dành 15 phút gom năm món để sai chỗ. Đặt tên triển lãm trước khi đưa chúng về nhà.', 60, 3],
+  ['Điều tra vụ mất tích của thời gian', 'Dành 30 phút cho một việc còn dang dở. Khi xong, viết tiêu đề bản tin về vụ án.', 100, 4],
+  ['Ký hiệp ước với trùm cuối', 'Chọn một việc trì hoãn lâu nay, làm một bước cụ thể trong 30 phút rồi viết thông cáo hòa bình đúng một câu.', 140, 5]
+];
+for (const [name, task, xp, tier] of absurd) {
+  missions.push([name, task, xp]);
+  levels.push(tier);
+}
+const packs = [
+  ['Phong tước', 'Đặt một biệt danh quý tộc cho {m}. Đọc tên mới bằng giọng tuyên bố hoàng gia.', ['chiếc cốc','cây bút','chiếc ghế','cái thìa','chiếc dép','chiếc móc áo','cái hộp','cuốn sổ','chiếc khăn','cái túi']],
+  ['Vật chứng', 'Tìm một món đồ {m} rồi đặt tên cho nó như thể đây là vật chứng của một vụ án.', ['màu đỏ','màu xanh','hình tròn','hình vuông','có chữ','bằng giấy','bằng vải','có nút','có tay cầm','trong suốt']],
+  ['Kiểm kê', 'Dành 3 phút kiểm tra {m}. Ghi một câu báo cáo cho Hệ Thống Tông Môn về điều bất ngờ nhất.', ['mục tải xuống','ngăn bút','túi đang dùng','kệ sách','danh sách tab','ảnh chụp màn hình','hộp đựng đồ','danh sách ghi chú','góc bàn','chỗ để chìa khóa']],
+  ['Giải vây', 'Dành 5 phút xử lý {m}. Đặt tên chiến dịch như tiêu đề một bộ phim.', ['một việc nhỏ hay quên','một góc có đồ để sai chỗ','một ghi chú cần làm rõ','một email có thể trả lời','một tài liệu khó tìm','một danh sách quá dài','một thư mục cần sắp lại','một vật cần cất đi','một lời hẹn còn mơ hồ','một việc cần chuẩn bị cho mai']],
+  ['Đặc vụ', 'Dành 8 phút cho {m} và ghi lại một kết quả cụ thể. Hệ Thống Tông Môn chấp nhận bằng chứng dạng một câu.', ['một trang cần đọc','một ý tưởng cần viết ra','một công việc dang dở','một món đồ cần sửa nhẹ','một góc cần sắp xếp','một kế hoạch còn mơ hồ','một ghi chú cần tóm tắt','một danh sách cần ưu tiên','một kỹ năng muốn luyện','một bản nháp cần chỉnh']],
+  ['Trùm cuối', 'Chọn một việc quan trọng thuộc nhóm {m}. Làm một bước cụ thể trong 12 phút rồi viết thông cáo chiến thắng đúng một câu.', ['học tập','công việc','viết lách','sáng tạo','dọn dẹp','lập kế hoạch','quản lý tệp','giao tiếp','đọc sách','chuẩn bị cho ngày mai']]
+];
+packs.forEach(([name, task, variants], tier) => {
+  variants.forEach(item => {
+    missions.push([name + ' · ' + item, task.replace('{m}', item), 10 + tier * 10]);
+    levels.push(tier);
+  });
+});
+const quota = [8, 7, 5, 12, 10, 8];
+const roasts = [
+  'Đơn xin bỏ qua đã được đọc rất kỹ. Hệ Thống Tông Môn mất đúng một giây để đóng dấu TỪ CHỐI.',
+  'Nhiệm vụ vẫn đang đợi. Nó còn kiên nhẫn hơn cả Hệ Thống Tông Môn.',
+  'Ba lần kiên trì xin bỏ qua. Hệ Thống Tông Môn công nhận ký chủ rất chăm, mỗi tội chăm nhầm việc.'
+];
+
+function dailyQueue(date, existing) {
+  let seed = 2166136261;
+  for (const letter of state.deviceSeed + ':' + date) {
+    seed = Math.imul(seed ^ letter.charCodeAt(0), 16777619);
+  }
+  function random() {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  }
+  const queue = existing ?? quota.flatMap((count, tier) => {
+    const pool = levels.flatMap((level, index) => level === tier ? [index] : []);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool.slice(0, count);
+  });
+  for (let i = queue.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [queue[i], queue[j]] = [queue[j], queue[i]];
+  }
+  return queue;
+}
+
+const rewards = [10, 8, 6, 4, 3, 2];
+const systemNames = ['Cục','Viện','Hội','Ban','Ty','Đội','Sở','Phòng','Tổng cục','Liên minh']
+  .flatMap(prefix => ['Tu Tiên','Cày Deadline','Né Việc','Giữ Chăn','Hóng Chuyện','Đòi XP','Niệm Bùa','Canh Nồi','Phong Ấn Tab','Trị Lười']
+    .flatMap(subject => ['Hết Pin','Hay Quên','Ngoài Giờ','Chưa Duyệt','Mất Sóng','Thiếu Ngủ','Đang Pha Trà','Không Lương','Tập Sự','Bản Lỗi']
+      .map(suffix => prefix + ' ' + subject + ' ' + suffix)));
+const key = 'system-missions-v1';
+let state = { xp: 0, done: 0 };
+try {
+  const saved = JSON.parse(localStorage.getItem(key));
+  if (saved && Number.isFinite(saved.xp) && Number.isFinite(saved.done)) state = saved;
+} catch {}
+if (!state.deviceSeed) {
+  state.deviceSeed = Array.from(crypto.getRandomValues(new Uint32Array(4)), value => value.toString(16).padStart(8, '0')).join('');
+  save();
+}
+const el = id => document.getElementById(id);
+function assignSystem() {
+  state.systemName ??= systemNames[Math.floor(Math.random() * systemNames.length)];
+}
+const day = () => new Intl.DateTimeFormat('sv-SE').format(new Date());
+const jokes = ['Hệ Thống Tông Môn đã đóng dấu. Con dấu hơi lệch nhưng vẫn có hiệu lực.', 'Bộ phận phần thưởng vừa ngừng ăn bánh để vỗ tay cho ký chủ.', 'Biên bản ghi rõ: ký chủ đã làm được chuyện hết sức không cần thiết này.'];
+
+
+function save() {
+  try { localStorage.setItem(key, JSON.stringify(state)); } catch {}
+}
+function say(text, from = 'system') {
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble ' + from;
+  const name = document.createElement('strong');
+  name.textContent = from === 'me' ? 'KÝ CHỦ' : '◈ ' + (state.systemName ?? 'HỆ THỐNG TÔNG MÔN');
+  bubble.append(name, document.createTextNode(text));
+  el('chat').append(bubble);
+}
+function currentRun() {
+  const date = day();
+  if (state.run?.day !== date) {
+    if (state.run) {
+      const previous = state.run;
+      state.review = {
+        day: previous.day, cleared: previous.cleared, skipped: previous.next - previous.cleared,
+        pending: previous.queue.slice(previous.next),
+        skippedIds: Object.values(previous.skippedIds ?? {})
+      };
+      if (previous.mission?.phase === 'skipped' && !state.review.skippedIds.includes(previous.mission.index)) {
+        state.review.skippedIds.push(previous.mission.index);
+      }
+    }
+    state.run = { day: date, queue: dailyQueue(date), next: 0, cleared: 0, mission: null, mixed: true };
+    save();
+  }
+  const run = state.run;
+  if (!run.mixed) {
+    const first = run.next + (run.mission?.phase === 'active' ? 1 : 0);
+    const remaining = run.queue.slice(first);
+    run.queue.splice(first, remaining.length, ...dailyQueue(date, remaining));
+    run.mixed = true;
+    save();
+  }
+  return run;
+}
+
+function renderReview(run) {
+  const review = run.next === run.queue.length ? {
+    day: run.day, cleared: run.cleared, skipped: run.next - run.cleared,
+    pending: [], skippedIds: Object.values(run.skippedIds ?? {})
+  } : state.review;
+  el('day-review').hidden = !review;
+  if (!review) return;
+  el('review-title').textContent = 'Tổng kết ' + review.day + ' · ' + review.cleared
+    + ' hoàn thành · ' + review.skipped + ' bỏ qua · ' + review.pending.length + ' chưa xong';
+  const list = el('review-list');
+  list.replaceChildren();
+  for (const [status, ids] of [['Bỏ qua', review.skippedIds], ['Chưa xong', review.pending]]) {
+    for (const id of ids) {
+      const item = document.createElement('li');
+      item.textContent = status + ' — ' + missions[id][0];
+      list.append(item);
+    }
+  }
+  el('review-note').textContent = review.skipped > review.skippedIds.length
+    ? 'Một số lượt bỏ qua trước bản cập nhật chỉ có số đếm.'
+    : list.children.length === 0 ? 'Tất cả nhiệm vụ đã hoàn thành.' : '';
+}
+
+
+let latestResult;
+let reportOpen = false;
+function render(animateMission = false, greetingOnly = false) {
+
+  const run = currentRun();
+  const level = levelFor(state.xp);
+  el('score').textContent = 'Cấp ' + level + ' / ' + MAX_LEVEL + ' · ' + xpLabel(state.xp) + ' XP';
+  el('rank-title').textContent = rankFor(level);
+  const atMax = level === MAX_LEVEL;
+  const earned = state.xp - thresholds[level - 1];
+  const required = atMax ? 1 : thresholds[level] - thresholds[level - 1];
+  el('rank-bar').max = required;
+  el('rank-bar').value = atMax ? 1 : earned;
+  el('rank-detail').textContent = atMax ? 'Đã đạt cấp tối đa' :
+    xpLabel(earned) + ' / ' + xpLabel(required) + ' XP để lên cấp ' + (level + 1);
+  el('stats').textContent = 'Hôm nay · Đã hoàn thành: ' + run.cleared
+    + ' · Không hoàn thành (đã bỏ qua): ' + (run.next - run.cleared)
+    + ' · Chưa hoàn thành: ' + (run.queue.length - run.next);
+  renderReview(run);
+  el('chat').replaceChildren();
+  const mission = run.mission;
+  const active = mission?.phase === 'active';
+  const finished = !active && run.next === run.queue.length;
+  el('action').disabled = finished;
+  el('action').textContent = active ? 'Báo cáo cán bộ' : finished ? 'Đã hết nhiệm vụ hôm nay' : '◈ Mở thông báo mới';
+  el('report-options').hidden = !active || !reportOpen;
+  el('skip').hidden = !active;
+  const attempts = mission?.skipAttempts ?? 0;
+  el('skip').textContent = 'Khó quá cán bộ ơi!' + (attempts === 2 && active
+    ? ' · Bỏ qua, mất ' + Math.min(state.xp, 5 + levels[mission.index] * 3) + ' XP'
+    : attempts === 1 ? ' · Lần 2' : '');
+  el('nudge').hidden = !active || levels[mission.index] < 3;
+  say('Xin chào ký chủ ' + (state.host || '') + '. Tôi là Hệ Thống Tông Môn của ký chủ.');
+  if (greetingOnly) return;
+  if (finished && mission !== latestResult) {
+    say('Hết lượt hôm nay. Hoàn thành ' + run.cleared + '/50 nhiệm vụ.');
+    return;
+  }
+  if (mission && !active && mission !== latestResult) {
+    say('Nhiệm vụ trước đã được xử lý. Mở thông báo mới để nhận nhiệm vụ ' + (run.next + 1) + '/50.');
+    return;
+  }
+  if (!mission) {
+    say('Tôi có 50 nhiệm vụ cho hôm nay. Cứ mở từng thông báo. Những nhiệm vụ đầu đã được dặn phải nhẹ tay.');
+    return;
+  }
+  const [title, task, originalXp] = missions[mission.index];
+  const xp = mission.reward ?? originalXp;
+  const tier = levels[mission.index];
+  const briefing = 'Nhiệm vụ ' + mission.number + '/50 [' + tiers[tier] + ']\n' + title + '\n' + task + '\nThưởng +' + xp + ' XP';
+  if (active && animateMission) {
+    say('');
+    const bubble = el('chat').lastElementChild;
+    const content = bubble.lastChild;
+    el('action').disabled = true;
+    el('skip').hidden = true;
+    el('nudge').hidden = true;
+    bubble.setAttribute('aria-hidden', 'true');
+    bubble.classList.add('receiving');
+    typeLine(content, briefing, () => {
+      if (bubble.isConnected) render();
+    });
+  } else {
+    say(briefing);
+    if (active) el('chat').lastElementChild.classList.add('pinned-mission');
+  }
+  if (mission.phase === 'done') {
+    say('Báo cáo, ký chủ đã hoàn thành!', 'me');
+    say('🎁 +' + xp + ' XP. ' + jokes[mission.index % jokes.length] + (mission.levelUp ? '\nLên cấp ' + level + ' • ' + rankFor(level) : ''));
+  }
+  if (mission.phase === 'skipped') {
+    say('Ký chủ xin bỏ qua.', 'me');
+    say('−' + mission.lost + ' XP. ' + (mission.officerReply ?? roasts[mission.index % roasts.length]));
+  }
+  if (finished) say('Hết lượt hôm nay. Hoàn thành ' + run.cleared + '/50 nhiệm vụ. Hệ Thống Tông Môn xin phép đi nghỉ trước ký chủ.');
+}
+
+el('action').onclick = () => {
+  const run = currentRun();
+  if (run.mission?.phase === 'active') {
+    reportOpen = !reportOpen;
+    el('report-options').hidden = !reportOpen;
+    return;
+  }
+  if (run.next >= run.queue.length) return;
+  const index = run.queue[run.next];
+  run.mission = { index, number: run.next + 1, phase: 'active', reward: rewards[levels[index]] };
+  reportOpen = false;
+
+  save();
+  render(true);
+};
+
+el('submit-mission').onclick = () => {
+  const run = currentRun();
+  const mission = run.mission;
+  if (!reportOpen || mission?.phase !== 'active') return;
+  const before = levelFor(state.xp);
+  state.xp += mission.reward ?? missions[mission.index][2];
+  state.done++;
+  run.cleared++;
+  run.next++;
+  mission.phase = 'done';
+  latestResult = mission;
+  mission.levelUp = levelFor(state.xp) > before;
+  reportOpen = false;
+  save();
+  render();
+};
+el('skip').onclick = () => {
+  const run = currentRun();
+  const mission = run.mission;
+  if (!reportOpen || el('skip').hidden || mission?.phase !== 'active') return;
+  mission.skipAttempts = (mission.skipAttempts ?? 0) + 1;
+  if (mission.skipAttempts < 3) {
+    save();
+    render();
+    say('Ký chủ xin bỏ qua.', 'me');
+    say(randomDialogue(officerLines) + ' Chưa duyệt bỏ qua. Lần ' + mission.skipAttempts + '/3.');
+    return;
+  }
+  mission.officerReply = randomDialogue(officerLines);
+  mission.lost = Math.min(state.xp, 5 + levels[mission.index] * 3);
+  state.xp -= mission.lost;
+  reportOpen = false;
+  mission.phase = 'skipped';
+  latestResult = mission;
+  (run.skippedIds ??= {})[run.next] = mission.index;
+  run.next++;
+  save();
+  render();
+};
+const voiceStatus = el('voice-status');
+let audioContext;
+let audioReady;
+document.addEventListener('click', () => {
+  if (!window.AudioContext) return;
+  audioContext ??= new AudioContext();
+  if (audioContext.state === 'suspended') audioReady = audioContext.resume().catch(() => {});
+}, { capture: true });
+
+async function startNarration(message) {
+  await audioReady;
+  if (!audioContext || audioContext.state !== 'running') return 0;
+  voiceStatus.textContent = 'Đang chuẩn bị giọng đọc…';
+  try {
+    const response = await fetch('/api/voice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: message }),
+      signal: AbortSignal.timeout(12000)
+    });
+    if (!response.ok) throw new Error('Voice unavailable');
+    const buffer = await audioContext.decodeAudioData(await response.arrayBuffer());
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioContext.destination);
+    source.start();
+    voiceStatus.textContent = '';
+    return buffer.duration * 1000;
+  } catch {
+    voiceStatus.textContent = 'Giọng đọc chưa sẵn sàng.';
+    return 0;
+  }
+}
+el('nudge').onclick = () => {
+  const mission = currentRun().mission;
+  if (el('nudge').hidden || mission?.phase !== 'active') return;
+  mission.rescueAttempts = Math.min((mission.rescueAttempts ?? 0) + 1, 21);
+  save();
+  const exhausted = mission.rescueAttempts > 20;
+  const chat = el('chat');
+  if (exhausted && chat.lastElementChild?.classList.contains('rescue-exhausted')) return;
+  say(exhausted ? 'Hệ Thống bất lực. Ký chủ xin tự lực cánh sinh!' : randomDialogue(rescueLines));
+  if (exhausted) chat.lastElementChild.classList.add('rescue-exhausted');
+};
+const contract = el('contract');
+const hostName = el('host-name');
+let prospectiveSystem;
+
+
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+async function typeLine(element, message, done) {
+  element.textContent = '';
+  const duration = await startNarration(message);
+  if (reducedMotion()) {
+    element.textContent = message;
+    done?.();
+    return;
+  }
+  const letters = Array.from(message);
+  const total = duration || letters.length * 18;
+  const started = performance.now();
+  const timer = setInterval(() => {
+    const shown = Math.floor((performance.now() - started) / total * letters.length);
+    element.textContent = letters.slice(0, shown).join('');
+    if (shown >= letters.length) {
+      clearInterval(timer);
+      done?.();
+    }
+  }, 24);
+}
+function enterMissions() {
+
+  const action = el('action');
+  const actions = action.parentElement;
+  actions.hidden = true;
+  render(false, true);
+  const greeting = el('chat').firstElementChild.lastChild;
+  contract.close();
+  typeLine(greeting, greeting.textContent, () => {
+    render(true);
+    actions.hidden = false;
+    if (!action.disabled) action.focus();
+  });
+}
+el('new-contract').onclick = () => {
+  prospectiveSystem ??= systemNames[Math.floor(Math.random() * systemNames.length)];
+  el('prospective-system').textContent = '◈ Tôi là ' + prospectiveSystem;
+  if (!el('contract-intro').hidden) return;
+  el('contract-intro').hidden = false;
+  typeLine(el('contract-line'),
+    'Xin chào ký chủ tương lai. Tôi sẽ giao nhiệm vụ, phát XP và phụ trách cà khịa đúng quy trình. Ký tên bên dưới để lập khế ước.',
+    () => {
+      el('contract-form').hidden = false;
+      hostName.focus();
+    });
+  el('contract-message').textContent = state.host
+    ? 'Ký mới sẽ thay khế ước và bắt đầu lại tiến độ trên trình duyệt này.'
+    : 'Nhập tên để Hệ Thống ghi vào khế ước.';
+  hostName.focus();
+};
+el('resume-contract').onclick = () => {
+  if (!state.host) {
+    el('contract-message').textContent = 'Chưa tìm thấy khế ước trên trình duyệt này. Hãy ký khế ước mới.';
+    return;
+  }
+  assignSystem();
+  save();
+  enterMissions();
+};
+contract.addEventListener('cancel', event => event.preventDefault());
+hostName.addEventListener('input', () => hostName.setCustomValidity(''));
+el('contract-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const name = hostName.value.trim();
+  if (name.length < 2 || name.length > 30) {
+    hostName.setCustomValidity('Tên ký chủ cần từ 2 đến 30 ký tự.');
+    hostName.reportValidity();
+    return;
+  }
+  if (state.host) {
+    if (!window.confirm('Ký khế ước mới và bắt đầu lại tiến độ?')) return;
+    state = { xp: 0, done: 0, deviceSeed: state.deviceSeed };
+  }
+  state.host = name;
+  state.systemName = prospectiveSystem;
+  el('contract-options').hidden = true;
+  el('contract-intro').hidden = true;
+  el('contract-message').textContent = '';
+  save();
+  contract.classList.add('signed');
+  el('contract-title').textContent = 'Ký khế ước thành công';
+  contract.querySelector('.contract-copy p').textContent =
+    'Tên ký chủ ' + name + ' đã được khắc vào khế ước. Đang mở kênh giao nhiệm vụ…';
+  el('contract-form').hidden = true;
+  setTimeout(() => {
+    enterMissions();
+  }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 650 : 1700);
+});
+contract.showModal();
+window.addEventListener('focus', () => { if (state.run?.day !== day()) render(); });
+render();
+</script>
+</html>

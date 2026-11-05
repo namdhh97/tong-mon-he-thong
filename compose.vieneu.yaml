@@ -1,0 +1,12 @@
+services:
+  app:
+    environment:
+      VIENEU_URL: http://vieneu:8000/voice
+  vieneu:
+    build:
+      context: .
+      dockerfile: Dockerfile.vieneu
+    volumes:
+      - vieneu_models:/root/.cache/huggingface
+volumes:
+  vieneu_models:

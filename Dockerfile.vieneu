@@ -1,0 +1,6 @@
+FROM python:3.11-slim
+RUN apt-get update && apt-get install -y --no-install-recommends libsndfile1 libgomp1 espeak-ng && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir vieneu
+WORKDIR /app
+COPY vieneu_voice.py .
+CMD ["python", "-u", "vieneu_voice.py"]
