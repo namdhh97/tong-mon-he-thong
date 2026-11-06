@@ -915,6 +915,7 @@ function render(animateMission = false, greetingOnly = false) {
   el('skip').textContent = wait>0 ? 'Linh lực đang hồi chiêu · '+Math.ceil(wait/1000)+'s' : attempts>=2
     ? 'Xin bỏ nhiệm vụ (−'+penaltyForNextSkip()+' điểm kỷ luật)' : 'Khó quá cán bộ ơi! · Gợi ý '+(attempts+1)+'/2';
   el('nudge').hidden = !active || levels[mission.index] < 3;
+  updateRescueButton();
   say('Xin chào ký chủ ' + (state.host || '') + '. Tôi là Hệ Thống Tông Môn của ký chủ.');
   if(memoryState().recentLines.length) say('◈ Cán bộ 007: '+memoryState().recentLines.at(-1));
   if (greetingOnly) return;
@@ -1120,16 +1121,44 @@ function loadNarration(text) {
   if (voiceCache.size > 24) voiceCache.delete(voiceCache.keys().next().value);
   return pending;
 }
+function rescueRemaining() {
+  return Math.max(0, (Number(state.rescueNextAt) || 0) - Date.now());
+}
+function updateRescueButton() {
+  const button = el('nudge');
+  const remaining = rescueRemaining();
+  const exhausted = state.run?.mission?.rescueAttempts > 20;
+  button.disabled = remaining > 0 || exhausted || banRemaining() > 0;
+  button.textContent = exhausted ? 'Hệ Thống bất lực · Ký chủ tự lực cánh sinh'
+    : remaining > 0 ? 'Hệ Thống đang hồi linh lực · ' + Math.ceil(remaining / 1000) + 's'
+    : 'Hệ Thống Tông Môn ơi, cứu!';
+}
+setInterval(updateRescueButton, 250);
+window.addEventListener('storage', event => {
+  if (event.key !== key || !event.newValue) return;
+  try {
+    state.rescueNextAt = Math.max(Number(state.rescueNextAt) || 0,
+      Number(JSON.parse(event.newValue).rescueNextAt) || 0);
+    updateRescueButton();
+  } catch {}
+});
 el('nudge').onclick = () => {
   const mission = currentRun().mission;
-  if (el('nudge').hidden || mission?.phase !== 'active') return;
+  if (el('nudge').hidden || mission?.phase !== 'active' || banRemaining() > 0) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) || '{}');
+    state.rescueNextAt = Math.max(Number(state.rescueNextAt) || 0, Number(saved.rescueNextAt) || 0);
+  } catch {}
+  if (rescueRemaining() > 0 || mission.rescueAttempts > 20) {
+    updateRescueButton();
+    return;
+  }
+  state.rescueNextAt = Date.now() + HELP_COOLDOWN_MS;
   mission.rescueAttempts = Math.min((mission.rescueAttempts ?? 0) + 1, 21);
   save();
+  updateRescueButton();
   const exhausted = mission.rescueAttempts > 20;
-  const chat = el('chat');
-  if (exhausted && chat.lastElementChild?.classList.contains('rescue-exhausted')) return;
   say(exhausted ? 'Hệ Thống bất lực. Ký chủ xin tự lực cánh sinh!' : randomDialogue(rescueLines));
-  if (exhausted) chat.lastElementChild.classList.add('rescue-exhausted');
 };
 const contract = el('contract');
 const hostName = el('host-name');
