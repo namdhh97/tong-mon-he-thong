@@ -26,7 +26,7 @@ app.post('/api/voice', async (req, res) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: line }),
-        signal: AbortSignal.timeout(25000)
+        signal: AbortSignal.timeout(40000)
       });
       if (generated.ok) {
         res.set('X-Voice-Engine', 'vieneu').type('audio/wav').send(Buffer.from(await generated.arrayBuffer()));

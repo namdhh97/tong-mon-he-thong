@@ -100,6 +100,11 @@ button{min-height:44px;white-space:normal;overflow-wrap:anywhere;touch-action:ma
 #award-notice{position:fixed;z-index:9999;right:1rem;bottom:1rem;max-width:min(380px,90vw);background:#173b32;border:2px solid #d5bc72;color:#fff4d2;border-radius:14px;padding:1rem;box-shadow:0 12px 45px #0009}#award-notice[hidden]{display:none}#award-notice button{margin-top:.5rem}
 #reward-history{max-height:230px;overflow:auto}#reward-history li{margin:.35rem 0}
 .daily-goal{border:1px solid #41665c;background:#132a2a;border-radius:14px;padding:1rem;margin:1rem 0}.daily-goal h2{font-size:1rem;margin:0 0 .6rem}.daily-goal select{width:auto;min-width:115px;margin-left:.4rem}.daily-goal progress{display:block;width:100%;height:12px;margin:.65rem 0;accent-color:#a5ffe0}.daily-goal p{margin:.3rem 0;color:#cce5db}.daily-goal .goal-success{color:#a5ffe0;font-weight:700}
+#chat{display:flex;flex-direction:column;align-items:flex-start;gap:.7rem;max-height:65vh;max-height:65dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;padding:.25rem .4rem .6rem 0}
+#chat>.bubble{flex:none}
+#chat>.bubble.me{align-self:flex-end}
+#chat>.pinned-mission{position:static;max-height:none;overflow:visible;box-shadow:none}
+@media(max-width:600px){#chat{max-height:62vh;max-height:62dvh}}
 </style>
 <dialog id="contract" aria-labelledby="contract-title">
   <div class="aura" aria-hidden="true"><span></span><b>◈</b></div>
@@ -680,6 +685,19 @@ const jokes = ['Hệ Thống Tông Môn đã đóng dấu. Con dấu hơi lệch
 function save() {
   try { localStorage.setItem(key, JSON.stringify(state)); } catch {}
 }
+let followChat = true;
+const chatBox = el('chat');
+chatBox.addEventListener('scroll', () => {
+  followChat = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 48;
+}, { passive: true });
+let scrollFrame;
+new MutationObserver(() => {
+  cancelAnimationFrame(scrollFrame);
+  scrollFrame = requestAnimationFrame(() => {
+    if (followChat) chatBox.scrollTop = chatBox.scrollHeight;
+  });
+}).observe(chatBox, { childList: true, subtree: true, characterData: true });
+
 function say(text, from = 'system') {
   const bubble = document.createElement('div');
   bubble.className = 'bubble ' + from;
@@ -871,7 +889,13 @@ function render(animateMission = false, greetingOnly = false) {
     + ' · Đã xử lý: ' + run.next + '/50'
     + ' · Chưa nhận: ' + Math.max(0,run.queue.length-run.next-(run.mission?.phase==='active'?1:0));
   renderReview(run);
+  const savedScroll = chatBox.scrollTop;
+  const wasFollowing = followChat;
   el('chat').replaceChildren();
+  requestAnimationFrame(() => {
+    chatBox.scrollTop = wasFollowing ? chatBox.scrollHeight : savedScroll;
+    followChat = wasFollowing;
+  });
   const mission = run.mission;
   const active = mission?.phase === 'active';
   if (active) { const v=verifyState(mission); if(!v.lastTick && document.visibilityState==='visible') v.lastTick=Date.now(); }
@@ -1034,7 +1058,7 @@ el('skip').onclick = () => {
     reportOpen=false;
     if(el('report-dialog').open) el('report-dialog').close();
     save();render();
-    el('chat').scrollTop=el('chat').scrollHeight;
+    if (followChat) chatBox.scrollTop = chatBox.scrollHeight;
     return;
   }
   showDisciplineNotice('⚠ Xác nhận bỏ nhiệm vụ',
@@ -1072,22 +1096,32 @@ document.addEventListener('click', () => {
 async function startNarration(message) {
   await audioReady;
   if (!audioContext || audioContext.state !== 'running') return 0;
-  voiceStatus.textContent = 'Đang chuẩn bị giọng đọc…';
+  voiceStatus.textContent = '';
   try {
-    const response = await fetch('/api/voice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: message }),
-      signal: AbortSignal.timeout(12000)
-    });
-    if (!response.ok) throw new Error('Voice unavailable');
-    const buffer = await audioContext.decodeAudioData(await response.arrayBuffer());
-    const source = audioContext.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioContext.destination);
-    source.start();
+    const chunks = message.match(/.{1,400}(?:\s|$)|\S{1,400}/gs) ?? [message];
+    const buffers = [];
+    for (const chunk of chunks) {
+      const response = await fetch('/api/voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: chunk }),
+        signal: AbortSignal.timeout(45000)
+      });
+      if (!response.ok) throw new Error('Voice unavailable');
+      buffers.push(await audioContext.decodeAudioData(await response.arrayBuffer()));
+    }
+    let nextStart = audioContext.currentTime + .05;
+    let duration = 0;
+    for (const buffer of buffers) {
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
+      source.start(nextStart);
+      nextStart += buffer.duration;
+      duration += buffer.duration;
+    }
     voiceStatus.textContent = '';
-    return buffer.duration * 1000;
+    return duration * 1000;
   } catch {
     voiceStatus.textContent = 'Giọng đọc chưa sẵn sàng.';
     return 0;
