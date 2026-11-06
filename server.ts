@@ -24,7 +24,7 @@ app.post('/api/voice', async (req, res) => {
     try {
       const generated = await fetch(vieneuUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(process.env.VOICE_API_TOKEN ? { Authorization: 'Bearer ' + process.env.VOICE_API_TOKEN } : {}) },
         body: JSON.stringify({ text: line }),
         signal: AbortSignal.timeout(40000)
       });

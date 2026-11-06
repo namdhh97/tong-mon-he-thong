@@ -1,4 +1,6 @@
 import io
+import os
+import hmac
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -13,6 +15,10 @@ class VoiceHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path != "/voice":
             self.send_error(404)
+            return
+        token = os.environ.get("VOICE_API_TOKEN")
+        if token and not hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + token):
+            self.send_error(401)
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))

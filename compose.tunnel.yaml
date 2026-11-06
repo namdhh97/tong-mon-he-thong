@@ -1,0 +1,8 @@
+services:
+  app:
+    env_file: .voice.env
+  vieneu:
+    env_file: .voice.env
+  voice-tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://vieneu:8000
