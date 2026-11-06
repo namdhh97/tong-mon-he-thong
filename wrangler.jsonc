@@ -2,5 +2,6 @@
   "name": "tong-mon-he-thong",
   "main": "worker.ts",
   "compatibility_date": "2026-11-03",
+  "vars": { "VOICE_ORIGIN": "https://assignments-adjustments-plc-bright.trycloudflare.com" },
   "assets": { "directory": "./dist", "binding": "ASSETS", "run_worker_first": ["/api/*"] }
 }

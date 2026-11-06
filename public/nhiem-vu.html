@@ -1093,39 +1093,32 @@ document.addEventListener('click', () => {
   if (audioContext.state === 'suspended') audioReady = audioContext.resume().catch(() => {});
 }, { capture: true });
 
-async function startNarration(message) {
-  await audioReady;
-  if (!audioContext || audioContext.state !== 'running') return 0;
-  voiceStatus.textContent = '';
-  try {
-    const chunks = message.match(/.{1,400}(?:\s|$)|\S{1,400}/gs) ?? [message];
-    const buffers = [];
-    for (const chunk of chunks) {
+const voiceCache = new Map();
+function narrationChunks(message) {
+  return message.match(/.{1,180}(?:\s|$)|\S{1,180}/gs) ?? [message];
+}
+function loadNarration(text) {
+  if (voiceCache.has(text)) return voiceCache.get(text);
+  const pending = (async () => {
+    await audioReady;
+    if (!audioContext || audioContext.state !== 'running') return null;
+    try {
       const response = await fetch('/api/voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: chunk }),
-        signal: AbortSignal.timeout(45000)
+        body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(15000)
       });
       if (!response.ok) throw new Error('Voice unavailable');
-      buffers.push(await audioContext.decodeAudioData(await response.arrayBuffer()));
+      return await audioContext.decodeAudioData(await response.arrayBuffer());
+    } catch {
+      voiceCache.delete(text);
+      return null;
     }
-    let nextStart = audioContext.currentTime + .05;
-    let duration = 0;
-    for (const buffer of buffers) {
-      const source = audioContext.createBufferSource();
-      source.buffer = buffer;
-      source.connect(audioContext.destination);
-      source.start(nextStart);
-      nextStart += buffer.duration;
-      duration += buffer.duration;
-    }
-    voiceStatus.textContent = '';
-    return duration * 1000;
-  } catch {
-    voiceStatus.textContent = 'Giọng đọc chưa sẵn sàng.';
-    return 0;
-  }
+  })();
+  voiceCache.set(text, pending);
+  if (voiceCache.size > 24) voiceCache.delete(voiceCache.keys().next().value);
+  return pending;
 }
 el('nudge').onclick = () => {
   const mission = currentRun().mission;
@@ -1146,24 +1139,47 @@ let prospectiveSystem;
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 async function typeLine(element, message, done) {
-  element.textContent = '';
-  const duration = await startNarration(message);
-  if (reducedMotion()) {
-    element.textContent = message;
-    done?.();
-    return;
-  }
-  const letters = Array.from(message);
-  const total = duration || letters.length * 18;
-  const started = performance.now();
-  const timer = setInterval(() => {
-    const shown = Math.floor((performance.now() - started) / total * letters.length);
-    element.textContent = letters.slice(0, shown).join('');
-    if (shown >= letters.length) {
-      clearInterval(timer);
-      done?.();
+  const chunks = narrationChunks(message);
+  let finishedText = '';
+  let nextAudio = loadNarration(chunks[0]);
+  element.textContent = '◌ Hệ Thống đang kết nối…';
+  for (let index = 0; index < chunks.length; index++) {
+    const buffer = await nextAudio;
+    if (!element.isConnected) return;
+    const chunk = chunks[index];
+    nextAudio = index + 1 < chunks.length ? loadNarration(chunks[index + 1]) : Promise.resolve(null);
+    let source;
+    if (buffer && audioContext.state === 'running') {
+      source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
+      source.start();
     }
-  }, 24);
+    const letters = Array.from(chunk);
+    const total = source ? buffer.duration * 1000 : Math.max(250, letters.length * 18);
+    const started = performance.now();
+    await new Promise(resolve => {
+      const timer = setInterval(() => {
+        if (!element.isConnected) {
+          clearInterval(timer);
+          source?.stop();
+          resolve();
+          return;
+        }
+        const progress = Math.min(1, (performance.now() - started) / total);
+        const shown = reducedMotion() ? letters.length : Math.floor(progress * letters.length);
+        element.textContent = finishedText + letters.slice(0, shown).join('');
+        if (progress >= 1) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 24);
+    });
+    if (!element.isConnected) return;
+    finishedText += chunk;
+  }
+  element.textContent = message;
+  done?.();
 }
 function enterMissions() {
 
